@@ -1,8 +1,11 @@
 [project]
-name = "your-project"
+name = "astar-norse-world"
 version = "0.1.0"
 requires-python = ">=3.11"
-dependencies = []
+dependencies = [
+    "numpy>=1.26",
+    "requests>=2.31",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -34,6 +37,9 @@ select = [
     "RUF",  # Ruff-specific rules
     "S",    # flake8-bandit: security checks
 ]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]  # assert is fine in tests
 
 [tool.ruff.lint.isort]
 known-first-party = ["src"]
