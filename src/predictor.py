@@ -19,7 +19,7 @@ from src.constants import (
     STATIC_TERRAIN_CONFIDENCE,
 )
 from src.observation import ObservationStore
-from src.runner import run_monte_carlo
+from src.runner import run_monte_carlo, run_monte_carlo_from_state
 from src.settlement import Settlement
 from src.terrain import InternalTerrain
 
@@ -107,7 +107,17 @@ class Predictor:
         map_seed: int,
         num_mc_runs: int,
     ) -> np.ndarray:
-        """Run Monte Carlo simulation to get prior probabilities."""
+        """Run Monte Carlo simulation to get prior probabilities.
+
+        Uses the actual initial state (grid + settlements) when
+        available, falling back to map generation from seed.
+        """
+        if self._grid is not None and self._settlements is not None:
+            return run_monte_carlo_from_state(
+                grid=self._grid,
+                settlements=self._settlements,
+                num_runs=num_mc_runs,
+            )
         return run_monte_carlo(
             map_seed=map_seed,
             num_runs=num_mc_runs,
