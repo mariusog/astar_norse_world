@@ -32,24 +32,24 @@ Create `src/api_client.py` (under 300 lines). Must handle:
 ---
 
 ### T11: Initial state loader from server response
-**Status**: open
+**Status**: done
 **Branch**: `core/T11-initial-state-loader`
 **Target**: Parse server JSON into our internal data structures
 
 Create `src/state_loader.py` (under 150 lines).
 
-- [ ] `load_initial_state(state_json: dict) -> tuple[np.ndarray, list[Settlement]]` -- parse server's `grid` (list of lists of ints) and `settlements` into InternalTerrain grid + Settlement objects
-- [ ] Map server terrain codes to our `InternalTerrain` enum (document any code differences)
-- [ ] Handle server settlement format: extract x, y, owner_id, is_port; set default values for population, food, etc. from constants
-- [ ] `load_round(round_json: dict) -> list[tuple[np.ndarray, list[Settlement]]]` -- load all seeds' initial states
-- [ ] Validate grid dimensions match round's map_width/map_height
-- [ ] All public methods have type annotations and docstrings
-- [ ] Self-review: lint + format check
-- [ ] Tests pass
+- [x] `load_initial_state(state_json: dict) -> tuple[np.ndarray, list[Settlement]]` -- parse server's `grid` (list of lists of ints) and `settlements` into InternalTerrain grid + Settlement objects
+- [x] Map server terrain codes to our `InternalTerrain` enum (document any code differences)
+- [x] Handle server settlement format: extract x, y, owner_id, is_port; set default values for population, food, etc. from constants
+- [x] `load_round(round_json: dict) -> list[tuple[np.ndarray, list[Settlement]]]` -- load all seeds' initial states
+- [x] Validate grid dimensions match round's map_width/map_height
+- [x] All public methods have type annotations and docstrings
+- [x] Self-review: lint + format check
+- [x] Tests pass
 
 **Acceptance criteria**: Server JSON round-trips correctly into our internal types. Grid dimensions validated. Settlement properties populated.
 
-**Result**:
+**Result**: Created `src/state_loader.py` (148 lines) with load_initial_state and load_round functions. Server terrain codes 0-6 map to InternalTerrain enum. Settlement fields use defaults from constants when not provided. Grid dimension validation against round metadata. 16 tests added in `tests/test_state_loader.py`, all passing. Clean lint.
 
 ---
 
