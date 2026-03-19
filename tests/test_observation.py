@@ -171,20 +171,20 @@ def test_coverage_fraction_partial(store: ObservationStore) -> None:
 
 
 # ---------------------------------------------------------------------------
-# total_observations
+# max_cell_observations
 # ---------------------------------------------------------------------------
 
 
-def test_total_observations_empty(store: ObservationStore) -> None:
+def test_max_cell_observations_empty(store: ObservationStore) -> None:
     """No observations returns 0."""
-    assert store.total_observations(0) == 0
+    assert store.max_cell_observations(0) == 0
 
 
-def test_total_observations_after_queries(store: ObservationStore) -> None:
+def test_max_cell_observations_after_queries(store: ObservationStore) -> None:
     """Multiple queries track max observation count."""
     store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=np.array([[0]]))
     store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=np.array([[1]]))
-    assert store.total_observations(0) == 2
+    assert store.max_cell_observations(0) == 2
 
 
 # ---------------------------------------------------------------------------

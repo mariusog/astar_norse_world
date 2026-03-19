@@ -170,13 +170,12 @@ class ObservationStore:
             return np.zeros((self._height, self._width), dtype=np.int32)
         return self._obs_counts[seed_index].copy()
 
-    def total_observations(self, seed_index: int) -> int:
-        """Return total number of query observations for this seed."""
+    def max_cell_observations(self, seed_index: int) -> int:
+        """Return the maximum observation count for any single cell."""
         if seed_index not in self._obs_counts:
             return 0
         obs = self._obs_counts[seed_index]
-        max_count = obs.max() if obs.size > 0 else 0
-        return int(max_count)
+        return int(obs.max()) if obs.size > 0 else 0
 
     def coverage_fraction(self, seed_index: int) -> float:
         """Return fraction of map cells that have been observed."""
