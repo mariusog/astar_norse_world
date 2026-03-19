@@ -1,54 +1,104 @@
-"""Named constants and tuning parameters.
+"""Named constants and tuning parameters for the Norse world simulator.
 
 All numeric thresholds, limits, and configuration values live here.
 No magic numbers in logic code -- reference these constants instead.
-
-Naming convention: UPPER_SNAKE_CASE
-Sections: group related constants under comment headers.
-
-When adding a new constant:
-1. Choose a descriptive name that explains WHAT it controls
-2. Add a comment explaining WHY this value was chosen
-3. If the value was tuned empirically, note the benchmark that validated it
 """
 
 # ---------------------------------------------------------------------------
-# System limits
+# Map dimensions
 # ---------------------------------------------------------------------------
 
-# Maximum iterations for search/exploration functions (prevents unbounded loops)
-MAX_SEARCH_STEPS = 10_000
-
-# Maximum file/data size to process in one pass
-MAX_BATCH_SIZE = 1_000
+DEFAULT_MAP_WIDTH = 40
+DEFAULT_MAP_HEIGHT = 40
+SIMULATION_YEARS = 50
 
 # ---------------------------------------------------------------------------
-# Performance tuning
+# Map generation
 # ---------------------------------------------------------------------------
 
-# Cache size limit for LRU caches (0 = unbounded, use with caution)
-DEFAULT_CACHE_SIZE = 1024
+# Ocean border thickness (perimeter cells)
+OCEAN_BORDER = 1
 
-# Timeout budget for real-time operations (seconds)
-OPERATION_TIMEOUT = 2.0
+# Fjord generation
+NUM_FJORDS_RANGE = (2, 5)  # min, max fjords per map
+FJORD_LENGTH_RANGE = (5, 15)  # min, max length in cells
+FJORD_WIDTH = 1  # cells wide
+
+# Mountain generation
+NUM_MOUNTAIN_CHAINS = 3
+MOUNTAIN_CHAIN_LENGTH_RANGE = (4, 12)
+MOUNTAIN_TURN_PROB = 0.3  # probability of changing direction during random walk
+
+# Forest generation
+NUM_FOREST_PATCHES = 8
+FOREST_PATCH_SIZE_RANGE = (3, 8)  # cells per patch
+
+# Settlement placement
+NUM_INITIAL_SETTLEMENTS_RANGE = (4, 8)
+MIN_SETTLEMENT_SPACING = 5  # minimum distance between settlements
+INITIAL_POPULATION = 50
+INITIAL_FOOD = 100
 
 # ---------------------------------------------------------------------------
-# Algorithm parameters
+# Simulation: Growth phase
 # ---------------------------------------------------------------------------
 
-# Example: thresholds, weights, and scoring parameters go here.
-# Replace with your project-specific constants.
-#
-# SCORE_MULTIPLIER = 1.15
-# BASE_BONUS = 5
-# RETRY_LIMIT = 3
+BASE_FOOD_PRODUCTION = 10
+FOOD_PER_FOREST = 15
+TECH_FOOD_BONUS = 2  # per tech level
+GROWTH_FOOD_THRESHOLD_MULTIPLIER = 2  # food > pop * this -> growth
+GROWTH_RATE = 0.1  # fraction of population added per growth tick
+PORT_DEVELOPMENT_THRESHOLD = 80  # population needed to develop port
+LONGSHIP_BUILD_THRESHOLD = 120  # population needed for longship
+EXPANSION_POPULATION_THRESHOLD = 100  # population needed to found new settlement
+EXPANSION_NEW_POPULATION = 20  # starting population of new settlement
 
 # ---------------------------------------------------------------------------
-# Logging and diagnostics
+# Simulation: Conflict phase
 # ---------------------------------------------------------------------------
 
-# Example diagnostic thresholds. Replace with your project's needs.
-#
-# IDLE_THRESHOLD = 10          # steps idle before flagging as anomaly
-# OSCILLATION_THRESHOLD = 5   # state flip-flops before flagging
-# SCORE_GAP_THRESHOLD = 20    # steps without progress before flagging
+RAID_RANGE = 3  # base range for land raiding (Manhattan distance)
+LONGSHIP_RAID_RANGE = 8  # extended range with longship
+DESPERATE_RAID_BONUS = 1.5  # damage multiplier when desperate
+RAID_LOOT_FRACTION = 0.3  # fraction of defender food/wealth looted
+CONQUEST_PROB = 0.2  # probability of faction change on successful raid
+RAID_DAMAGE_BASE = 15  # base damage per raid
+
+# ---------------------------------------------------------------------------
+# Simulation: Trade phase
+# ---------------------------------------------------------------------------
+
+TRADE_RANGE = 6  # max distance for port-to-port trade
+TRADE_FOOD_EXCHANGE = 10  # food exchanged per trade
+TRADE_WEALTH_GAIN = 5  # wealth gained per trade
+TECH_DIFFUSION_PROB = 0.3  # probability of tech level spreading via trade
+
+# ---------------------------------------------------------------------------
+# Simulation: Winter phase
+# ---------------------------------------------------------------------------
+
+WINTER_SEVERITY_RANGE = (0.5, 1.5)  # min, max winter severity
+FOOD_CONSUMPTION_RATE = 0.4  # fraction of population consumed as food
+STARVATION_COLLAPSE_POP = 10  # collapse if pop < this and food <= 0
+COLLAPSE_RAID_DAMAGE_MULTIPLIER = 2  # collapse if raid_damage > strength * this
+REFUGEE_RANGE = 5  # distance refugees flee to friendly settlements
+REFUGEE_FRACTION = 0.5  # fraction of pop that becomes refugees
+
+# ---------------------------------------------------------------------------
+# Simulation: Environment phase
+# ---------------------------------------------------------------------------
+
+RUIN_RECLAIM_AS_FOREST_PROB = 0.15  # probability ruin becomes forest per year
+RUIN_REBUILD_PROB = 0.1  # probability thriving settlement rebuilds nearby ruin
+RUIN_REBUILD_RANGE = 3  # max distance to rebuild a ruin
+RUIN_TO_PLAINS_PROB = 0.05  # probability ruin becomes plains
+REBUILD_INHERIT_TECH_FRACTION = 0.5  # fraction of parent tech inherited
+REBUILD_POPULATION = 15  # starting population of rebuilt settlement
+
+# ---------------------------------------------------------------------------
+# Scoring (reference only -- actual scoring is server-side)
+# ---------------------------------------------------------------------------
+
+NUM_PREDICTION_CLASSES = 6
+PROBABILITY_FLOOR = 0.01  # minimum probability to avoid infinite KL divergence
+SCORE_DECAY_RATE = 3  # exp(-3 * weighted_kl)
