@@ -85,21 +85,42 @@ class CompetitionPipeline:
         logger.info("Starting pipeline for round %s", rid)
 
         states = load_round(round_data)
+        planner, obs_store = self._build_components(round_data, len(states))
+
+        result = self._run_all_seeds(rid, states, planner, obs_store)
+        result.elapsed_seconds = time.monotonic() - start
+        _log_summary(result)
+        return result
+
+    def _build_components(
+        self,
+        round_data: dict[str, Any],
+        num_seeds: int,
+    ) -> tuple[QueryPlanner, ObservationStore]:
+        """Create planner and observation store from round metadata."""
         width = round_data.get("map_width", 40)
         height = round_data.get("map_height", 40)
-
         planner = QueryPlanner(
             map_width=width,
             map_height=height,
             total_budget=TOTAL_QUERY_BUDGET,
-            num_seeds=len(states),
+            num_seeds=num_seeds,
         )
         obs_store = ObservationStore(
             height=height,
             width=width,
-            num_seeds=len(states),
+            num_seeds=num_seeds,
         )
+        return planner, obs_store
 
+    def _run_all_seeds(
+        self,
+        rid: str,
+        states: list[tuple[np.ndarray, list]],
+        planner: QueryPlanner,
+        obs_store: ObservationStore,
+    ) -> PipelineResult:
+        """Process every seed and aggregate results."""
         result = PipelineResult(round_id=rid)
         for seed_idx in range(len(states)):
             seed_result = self._process_seed(
@@ -108,14 +129,9 @@ class CompetitionPipeline:
                 states[seed_idx],
                 planner,
                 obs_store,
-                width,
-                height,
             )
             result.seed_results.append(seed_result)
             result.total_queries += seed_result.queries_used
-
-        result.elapsed_seconds = time.monotonic() - start
-        _log_summary(result)
         return result
 
     def _resolve_round(
@@ -138,46 +154,53 @@ class CompetitionPipeline:
         state: tuple[np.ndarray, list],
         planner: QueryPlanner,
         obs_store: ObservationStore,
-        width: int,
-        height: int,
     ) -> SeedResult:
         """Process one seed: query, predict, submit."""
         result = SeedResult(seed_index=seed_idx)
         grid, settlements = state
 
         try:
-            queries_used = self._execute_queries(
+            result.queries_used = self._execute_queries(
                 round_id,
                 seed_idx,
                 grid,
                 planner,
                 obs_store,
             )
-            result.queries_used = queries_used
-
-            prediction = self._generate_prediction(
+            self._submit_prediction(
+                result,
+                round_id,
+                seed_idx,
                 grid,
                 settlements,
                 obs_store,
-                seed_idx,
-            )
-            response = self._client.submit(
-                round_id,
-                seed_idx,
-                prediction,
-            )
-            result.submitted = True
-            result.score = response.get("score")
-            logger.info(
-                "Seed %d submitted, score=%s",
-                seed_idx,
-                result.score,
             )
         except Exception as exc:
             result.error = str(exc)
             logger.error("Seed %d failed: %s", seed_idx, exc)
 
         return result
+
+    def _submit_prediction(
+        self,
+        result: SeedResult,
+        round_id: str,
+        seed_idx: int,
+        grid: np.ndarray,
+        settlements: list,
+        obs_store: ObservationStore,
+    ) -> None:
+        """Generate and submit a prediction, updating *result* in place."""
+        prediction = self._generate_prediction(
+            grid,
+            settlements,
+            obs_store,
+            seed_idx,
+        )
+        response = self._client.submit(round_id, seed_idx, prediction)
+        result.submitted = True
+        result.score = response.get("score")
+        logger.info("Seed %d submitted, score=%s", seed_idx, result.score)
 
     def _execute_queries(
         self,
@@ -188,9 +211,33 @@ class CompetitionPipeline:
         obs_store: ObservationStore,
     ) -> int:
         """Execute coverage and adaptive queries for one seed."""
+        queries_used = self._execute_initial_queries(
+            round_id,
+            planner,
+            obs_store,
+            seed_idx,
+            grid,
+        )
+        queries_used += self._execute_adaptive_query(
+            round_id,
+            seed_idx,
+            grid,
+            planner,
+            obs_store,
+        )
+        return queries_used
+
+    def _execute_initial_queries(
+        self,
+        round_id: str,
+        planner: QueryPlanner,
+        obs_store: ObservationStore,
+        seed_idx: int,
+        grid: np.ndarray,
+    ) -> int:
+        """Run planned initial viewport queries. Returns query count."""
         queries_used = 0
         viewports = planner.plan_initial_queries(seed_idx, grid)
-
         for vp in viewports:
             if planner.queries_remaining <= 0:
                 break
@@ -201,24 +248,28 @@ class CompetitionPipeline:
                 obs_store,
                 planner,
             )
+        return queries_used
 
-        # Adaptive queries with remaining budget
+    def _execute_adaptive_query(
+        self,
+        round_id: str,
+        seed_idx: int,
+        grid: np.ndarray,
+        planner: QueryPlanner,
+        obs_store: ObservationStore,
+    ) -> int:
+        """Run one adaptive query if budget remains. Returns 1 or 0."""
         coverage = obs_store.get_coverage_mask(seed_idx)
-        adaptive_vp = planner.plan_adaptive_query(
-            seed_idx,
-            coverage,
-            grid,
-        )
+        adaptive_vp = planner.plan_adaptive_query(seed_idx, coverage, grid)
         if adaptive_vp and planner.queries_remaining > 0:
-            queries_used += _execute_single_query(
+            return _execute_single_query(
                 self._client,
                 round_id,
                 adaptive_vp,
                 obs_store,
                 planner,
             )
-
-        return queries_used
+        return 0
 
     def _generate_prediction(
         self,

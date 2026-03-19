@@ -20,7 +20,12 @@ logger = logging.getLogger(__name__)
 #              10=Ocean, 11=Plains
 # Prediction classes: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain
 _SERVER_TO_PRED_CLASS: dict[int, int] = {
-    0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5,
+    0: 0,
+    1: 1,
+    2: 2,
+    3: 3,
+    4: 4,
+    5: 5,
     10: 0,  # Ocean -> Empty
     11: 0,  # Plains -> Empty
 }
@@ -68,9 +73,35 @@ class ObservationStore:
         """
         self._ensure_seed(seed_index)
         vh, vw = grid_patch.shape
+        self._accumulate_patch(
+            seed_index,
+            viewport_x,
+            viewport_y,
+            grid_patch,
+            vh,
+            vw,
+        )
+        logger.info(
+            "Added observation for seed %d: viewport (%d,%d) size %dx%d",
+            seed_index,
+            viewport_x,
+            viewport_y,
+            vw,
+            vh,
+        )
+
+    def _accumulate_patch(
+        self,
+        seed_index: int,
+        viewport_x: int,
+        viewport_y: int,
+        grid_patch: np.ndarray,
+        vh: int,
+        vw: int,
+    ) -> None:
+        """Add terrain counts from a viewport patch into the store."""
         counts = self._counts[seed_index]
         obs = self._obs_counts[seed_index]
-
         for row in range(vh):
             for col in range(vw):
                 gy = viewport_y + row
@@ -82,15 +113,6 @@ class ObservationStore:
                 if 0 <= pred_class < NUM_PREDICTION_CLASSES:
                     counts[gy, gx, pred_class] += 1
                     obs[gy, gx] += 1
-
-        logger.info(
-            "Added observation for seed %d: viewport (%d,%d) size %dx%d",
-            seed_index,
-            viewport_x,
-            viewport_y,
-            vw,
-            vh,
-        )
 
     def get_observed_probs(self, seed_index: int) -> np.ndarray:
         """Return H x W x 6 probability tensor from observations.

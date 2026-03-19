@@ -77,16 +77,31 @@ def score_prediction(ground_truth: np.ndarray, prediction: np.ndarray) -> dict[s
     num_dynamic = int(np.sum(dynamic_mask))
 
     if num_dynamic == 0:
-        return {
-            "score": 100.0,
-            "weighted_kl": 0.0,
-            "num_dynamic_cells": 0,
-            "mean_entropy": 0.0,
-        }
+        return _empty_score_result()
 
-    dynamic_entropy = cell_entropy[dynamic_mask]
-    dynamic_kl = cell_kl[dynamic_mask]
+    return _compute_weighted_score(
+        cell_entropy[dynamic_mask],
+        cell_kl[dynamic_mask],
+        num_dynamic,
+    )
 
+
+def _empty_score_result() -> dict[str, float | int]:
+    """Return a perfect score result when no dynamic cells exist."""
+    return {
+        "score": 100.0,
+        "weighted_kl": 0.0,
+        "num_dynamic_cells": 0,
+        "mean_entropy": 0.0,
+    }
+
+
+def _compute_weighted_score(
+    dynamic_entropy: np.ndarray,
+    dynamic_kl: np.ndarray,
+    num_dynamic: int,
+) -> dict[str, float | int]:
+    """Compute the entropy-weighted KL score for dynamic cells."""
     entropy_sum = np.sum(dynamic_entropy)
     weighted_kl = float(np.sum(dynamic_entropy * dynamic_kl) / entropy_sum)
     mean_ent = float(entropy_sum / num_dynamic)
