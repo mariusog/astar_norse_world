@@ -22,7 +22,8 @@ from pathlib import Path
 import numpy as np
 
 from src.api_client import APIError, AstarClient, BudgetExhaustedError
-from src.query_strategy import QueryPlanner
+from src.constants import DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, NUM_SEEDS
+from src.query_strategy import QueryPlanner, Viewport
 from src.state_loader import load_round
 
 logging.basicConfig(
@@ -118,9 +119,9 @@ def _fetch_and_save_round(
     logger.info("Fetching round details for %s", round_id)
     round_data = client.get_round(round_id)
     (out_dir / "round.json").write_text(json.dumps(round_data, indent=2, default=str))
-    width = round_data.get("map_width", 40)
-    height = round_data.get("map_height", 40)
-    seeds_count = round_data.get("seeds_count", 5)
+    width = round_data.get("map_width", DEFAULT_MAP_WIDTH)
+    height = round_data.get("map_height", DEFAULT_MAP_HEIGHT)
+    seeds_count = round_data.get("seeds_count", NUM_SEEDS)
     status = round_data.get("status", "unknown")
     logger.info("Round status: %s, %dx%d, %d seeds", status, width, height, seeds_count)
     return round_data
@@ -151,7 +152,7 @@ def _maybe_capture_ground_truth(
     """Capture ground truth if the round is completed/scoring."""
     if status not in ("completed", "scoring"):
         return False
-    seeds_count = round_data.get("seeds_count", 5)
+    seeds_count = round_data.get("seeds_count", NUM_SEEDS)
     return _capture_ground_truth(client, round_id, seeds_count, out_dir)
 
 
@@ -166,9 +167,9 @@ def _maybe_capture_viewports(
     """Use viewport queries if the round is still active."""
     if status != "active":
         return
-    width = round_data.get("map_width", 40)
-    height = round_data.get("map_height", 40)
-    seeds_count = round_data.get("seeds_count", 5)
+    width = round_data.get("map_width", DEFAULT_MAP_WIDTH)
+    height = round_data.get("map_height", DEFAULT_MAP_HEIGHT)
+    seeds_count = round_data.get("seeds_count", NUM_SEEDS)
     _capture_viewports(client, round_id, seeds_count, width, height, states, out_dir)
 
 
@@ -303,7 +304,7 @@ def _query_seed_viewports(
 def _execute_viewport_query(
     client: AstarClient,
     round_id: str,
-    vp: object,
+    vp: Viewport,
 ) -> dict:
     """Execute a single viewport query and return the observation dict."""
     result = client.query(

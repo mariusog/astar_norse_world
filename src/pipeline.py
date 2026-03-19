@@ -15,6 +15,8 @@ import numpy as np
 
 from src.api_client import AstarClient, BudgetExhaustedError
 from src.constants import (
+    DEFAULT_MAP_HEIGHT,
+    DEFAULT_MAP_WIDTH,
     DEFAULT_MC_RUNS,
     TOTAL_QUERY_BUDGET,
 )
@@ -98,8 +100,8 @@ class CompetitionPipeline:
         num_seeds: int,
     ) -> tuple[QueryPlanner, ObservationStore]:
         """Create planner and observation store from round metadata."""
-        width = round_data.get("map_width", 40)
-        height = round_data.get("map_height", 40)
+        width = round_data.get("map_width", DEFAULT_MAP_WIDTH)
+        height = round_data.get("map_height", DEFAULT_MAP_HEIGHT)
         planner = QueryPlanner(
             map_width=width,
             map_height=height,
