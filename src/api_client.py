@@ -146,12 +146,14 @@ class AstarClient:
         return self._get(f"/astar-island/my-predictions/{round_id}")
 
     def analysis(
-        self, round_id: str, seed_index: int,
+        self,
+        round_id: str,
+        seed_index: int,
     ) -> dict[str, Any]:
         """GET /astar-island/analysis/{round_id}/{seed_index} -- ground truth comparison.
 
         Only available after round is completed or during scoring.
-        Returns prediction, ground_truth (H×W×6), score, and initial_grid.
+        Returns prediction, ground_truth (HxWx6), score, and initial_grid.
         """
         return self._get(
             f"/astar-island/analysis/{round_id}/{seed_index}",

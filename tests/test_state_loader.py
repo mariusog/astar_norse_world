@@ -24,7 +24,7 @@ from src.terrain import InternalTerrain
 def test_map_terrain_code_all_known() -> None:
     """All 8 known server codes map correctly."""
     expected = {
-        0: InternalTerrain.PLAINS,       # Server "Empty"
+        0: InternalTerrain.PLAINS,  # Server "Empty"
         1: InternalTerrain.SETTLEMENT,
         2: InternalTerrain.PORT,
         3: InternalTerrain.RUIN,

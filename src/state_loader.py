@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 #   Our enum: 0=Ocean, 1=Plains, 2=Settlement, 3=Port, 4=Ruin, 5=Forest,
 #             6=Mountain
 _SERVER_TERRAIN_MAP: dict[int, InternalTerrain] = {
-    0: InternalTerrain.PLAINS,      # Server "Empty" -> Plains
+    0: InternalTerrain.PLAINS,  # Server "Empty" -> Plains
     1: InternalTerrain.SETTLEMENT,
     2: InternalTerrain.PORT,
     3: InternalTerrain.RUIN,
@@ -171,14 +171,8 @@ def _validate_dimensions(
         ValueError: If dimensions don't match.
     """
     if expected_h is not None and grid.shape[0] != expected_h:
-        msg = (
-            f"Seed {seed_idx}: grid height {grid.shape[0]} "
-            f"!= expected {expected_h}"
-        )
+        msg = f"Seed {seed_idx}: grid height {grid.shape[0]} != expected {expected_h}"
         raise ValueError(msg)
     if expected_w is not None and grid.shape[1] != expected_w:
-        msg = (
-            f"Seed {seed_idx}: grid width {grid.shape[1]} "
-            f"!= expected {expected_w}"
-        )
+        msg = f"Seed {seed_idx}: grid width {grid.shape[1]} != expected {expected_w}"
         raise ValueError(msg)
