@@ -22,15 +22,16 @@ from src.terrain import InternalTerrain
 
 
 def test_map_terrain_code_all_known() -> None:
-    """All 7 known server codes map correctly."""
+    """All 8 known server codes map correctly."""
     expected = {
-        0: InternalTerrain.OCEAN,
-        1: InternalTerrain.PLAINS,
-        2: InternalTerrain.SETTLEMENT,
-        3: InternalTerrain.PORT,
-        4: InternalTerrain.RUIN,
-        5: InternalTerrain.FOREST,
-        6: InternalTerrain.MOUNTAIN,
+        0: InternalTerrain.PLAINS,       # Server "Empty"
+        1: InternalTerrain.SETTLEMENT,
+        2: InternalTerrain.PORT,
+        3: InternalTerrain.RUIN,
+        4: InternalTerrain.FOREST,
+        5: InternalTerrain.MOUNTAIN,
+        10: InternalTerrain.OCEAN,
+        11: InternalTerrain.PLAINS,
     }
     for code, terrain in expected.items():
         assert _map_terrain_code(code) == terrain
@@ -49,7 +50,7 @@ def test_map_terrain_code_unknown_raises() -> None:
 
 def test_parse_grid_correct_shape() -> None:
     """Grid is parsed to correct shape and dtype."""
-    grid_data = [[0, 1, 5], [6, 1, 0]]
+    grid_data = [[10, 11, 4], [5, 11, 10]]
     grid = _parse_grid(grid_data)
     assert grid.shape == (2, 3)
     assert grid.dtype == np.int8
@@ -57,7 +58,7 @@ def test_parse_grid_correct_shape() -> None:
 
 def test_parse_grid_values() -> None:
     """Grid values map correctly from server codes."""
-    grid_data = [[0, 1], [5, 6]]
+    grid_data = [[10, 11], [4, 5]]
     grid = _parse_grid(grid_data)
     assert grid[0, 0] == InternalTerrain.OCEAN
     assert grid[0, 1] == InternalTerrain.PLAINS
@@ -104,7 +105,7 @@ def test_parse_settlements_full_fields() -> None:
             "wealth": 50,
             "defense": 20,
             "tech_level": 3,
-            "is_port": True,
+            "has_port": True,
             "has_longship": True,
         }
     ]
@@ -161,8 +162,8 @@ def test_validate_dimensions_none_skips() -> None:
 def test_load_initial_state_roundtrip() -> None:
     """Full state JSON parses into grid and settlements."""
     state = {
-        "grid": [[0, 1, 5], [6, 2, 1]],
-        "settlements": [{"x": 1, "y": 1, "owner_id": 0, "is_port": False}],
+        "grid": [[10, 11, 4], [5, 1, 11]],
+        "settlements": [{"x": 1, "y": 1, "has_port": False}],
     }
     grid, settlements = load_initial_state(state)
     assert grid.shape == (2, 3)
@@ -172,7 +173,7 @@ def test_load_initial_state_roundtrip() -> None:
 
 def test_load_initial_state_no_settlements() -> None:
     """State with no settlements key still works."""
-    state = {"grid": [[0, 1], [1, 0]]}
+    state = {"grid": [[10, 11], [11, 10]]}
     grid, settlements = load_initial_state(state)
     assert grid.shape == (2, 2)
     assert settlements == []
@@ -189,8 +190,8 @@ def test_load_round_multiple_seeds() -> None:
         "map_width": 3,
         "map_height": 2,
         "initial_states": [
-            {"grid": [[0, 1, 5], [6, 1, 0]], "settlements": []},
-            {"grid": [[1, 1, 1], [0, 0, 0]], "settlements": [{"x": 0, "y": 0}]},
+            {"grid": [[10, 11, 4], [5, 11, 10]], "settlements": []},
+            {"grid": [[11, 11, 11], [10, 10, 10]], "settlements": [{"x": 0, "y": 0}]},
         ],
     }
     results = load_round(round_json)
@@ -205,7 +206,7 @@ def test_load_round_dimension_mismatch_raises() -> None:
         "map_width": 10,
         "map_height": 2,
         "initial_states": [
-            {"grid": [[0, 1, 5], [6, 1, 0]], "settlements": []},
+            {"grid": [[10, 11, 4], [5, 11, 10]], "settlements": []},
         ],
     }
     with pytest.raises(ValueError, match="width"):

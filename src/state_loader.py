@@ -21,16 +21,20 @@ from src.terrain import InternalTerrain
 logger = logging.getLogger(__name__)
 
 # Server terrain codes -> InternalTerrain mapping.
-# The server uses integer codes for terrain; this maps them to our enum.
-# If the server ever adds new codes, add them here.
+# The server uses different codes from our InternalTerrain enum:
+#   Server: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain,
+#           10=Ocean, 11=Plains
+#   Our enum: 0=Ocean, 1=Plains, 2=Settlement, 3=Port, 4=Ruin, 5=Forest,
+#             6=Mountain
 _SERVER_TERRAIN_MAP: dict[int, InternalTerrain] = {
-    0: InternalTerrain.OCEAN,
-    1: InternalTerrain.PLAINS,
-    2: InternalTerrain.SETTLEMENT,
-    3: InternalTerrain.PORT,
-    4: InternalTerrain.RUIN,
-    5: InternalTerrain.FOREST,
-    6: InternalTerrain.MOUNTAIN,
+    0: InternalTerrain.PLAINS,      # Server "Empty" -> Plains
+    1: InternalTerrain.SETTLEMENT,
+    2: InternalTerrain.PORT,
+    3: InternalTerrain.RUIN,
+    4: InternalTerrain.FOREST,
+    5: InternalTerrain.MOUNTAIN,
+    10: InternalTerrain.OCEAN,
+    11: InternalTerrain.PLAINS,
 }
 
 
@@ -133,8 +137,9 @@ def _parse_settlements(
 ) -> list[Settlement]:
     """Convert server settlement list to Settlement objects.
 
-    Server settlements have at minimum: x, y, owner_id, is_port.
-    Other fields get sensible defaults from constants.
+    Server settlements have at minimum: x, y, has_port, alive.
+    Note: Server does NOT expose population, food, wealth, defense in
+    initial states -- we use defaults from constants.
     """
     settlements: list[Settlement] = []
     for sdata in settlements_data:
@@ -147,7 +152,7 @@ def _parse_settlements(
             wealth=sdata.get("wealth", 0),
             defense=sdata.get("defense", 10),
             tech_level=sdata.get("tech_level", 1),
-            is_port=sdata.get("is_port", False),
+            is_port=sdata.get("has_port", sdata.get("is_port", False)),
             has_longship=sdata.get("has_longship", False),
         )
         settlements.append(settlement)
