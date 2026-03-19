@@ -38,6 +38,9 @@ NUM_INITIAL_SETTLEMENTS_RANGE = (4, 8)
 MIN_SETTLEMENT_SPACING = 5  # minimum distance between settlements
 INITIAL_POPULATION = 50
 INITIAL_FOOD = 100
+INITIAL_WEALTH = 0
+INITIAL_DEFENSE = 10
+INITIAL_TECH_LEVEL = 1
 
 # ---------------------------------------------------------------------------
 # Simulation: Growth phase

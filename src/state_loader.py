@@ -12,8 +12,11 @@ from typing import Any
 import numpy as np
 
 from src.constants import (
+    INITIAL_DEFENSE,
     INITIAL_FOOD,
     INITIAL_POPULATION,
+    INITIAL_TECH_LEVEL,
+    INITIAL_WEALTH,
 )
 from src.settlement import Settlement
 from src.terrain import InternalTerrain
@@ -149,9 +152,9 @@ def _parse_settlements(
             owner_id=sdata.get("owner_id", 0),
             population=sdata.get("population", INITIAL_POPULATION),
             food=sdata.get("food", INITIAL_FOOD),
-            wealth=sdata.get("wealth", 0),
-            defense=sdata.get("defense", 10),
-            tech_level=sdata.get("tech_level", 1),
+            wealth=sdata.get("wealth", INITIAL_WEALTH),
+            defense=sdata.get("defense", INITIAL_DEFENSE),
+            tech_level=sdata.get("tech_level", INITIAL_TECH_LEVEL),
             is_port=sdata.get("has_port", sdata.get("is_port", False)),
             has_longship=sdata.get("has_longship", False),
         )
