@@ -24,7 +24,6 @@ from src.pipeline_types import PipelineResult, SeedResult  # re-exported
 from src.predictor import Predictor
 from src.query_strategy import QueryPlanner
 from src.state_loader import load_round
-from src.terrain import grid_to_prediction
 
 logger = logging.getLogger(__name__)
 
@@ -234,9 +233,9 @@ def _execute_single_query(
             vp.viewport_h,
         )
         planner.record_query()
-        patch = np.array(response["grid"], dtype=np.int8)
-        pred_patch = grid_to_prediction(patch)
-        obs_store.add_observation(vp.seed_index, vp.viewport_x, vp.viewport_y, pred_patch)
+        # Pass raw server grid — ObservationStore handles server code mapping
+        patch = np.array(response["grid"], dtype=np.int32)
+        obs_store.add_observation(vp.seed_index, vp.viewport_x, vp.viewport_y, patch)
         return 1
     except BudgetExhaustedError:
         logger.warning("Budget exhausted during query")
