@@ -21,9 +21,9 @@ from pathlib import Path
 
 import numpy as np
 
-from src.api_client import APIError, AstarClient, BudgetExhaustedError
+from scripts.capture_viewports import capture_viewports
+from src.api_client import APIError, AstarClient
 from src.constants import DEFAULT_MAP_HEIGHT, DEFAULT_MAP_WIDTH, NUM_SEEDS
-from src.query_strategy import QueryPlanner, Viewport
 from src.state_loader import load_round
 
 logging.basicConfig(
@@ -92,29 +92,14 @@ def capture_round(client: AstarClient, round_id: str) -> None:
 
     status = round_data.get("status", "unknown")
     ground_truth_captured = _maybe_capture_ground_truth(
-        client,
-        round_id,
-        round_data,
-        status,
-        out_dir,
+        client, round_id, round_data, status, out_dir
     )
     _capture_predictions(client, round_id, out_dir)
-    _maybe_capture_viewports(
-        client,
-        round_id,
-        round_data,
-        status,
-        states,
-        out_dir,
-    )
+    _maybe_capture_viewports(client, round_id, round_data, status, states, out_dir)
     _write_summary(client, round_id, round_data, out_dir, ground_truth_captured)
 
 
-def _fetch_and_save_round(
-    client: AstarClient,
-    round_id: str,
-    out_dir: Path,
-) -> dict:
+def _fetch_and_save_round(client: AstarClient, round_id: str, out_dir: Path) -> dict:
     """Fetch round details from the server and persist them."""
     logger.info("Fetching round details for %s", round_id)
     round_data = client.get_round(round_id)
@@ -170,14 +155,11 @@ def _maybe_capture_viewports(
     width = round_data.get("map_width", DEFAULT_MAP_WIDTH)
     height = round_data.get("map_height", DEFAULT_MAP_HEIGHT)
     seeds_count = round_data.get("seeds_count", NUM_SEEDS)
-    _capture_viewports(client, round_id, seeds_count, width, height, states, out_dir)
+    capture_viewports(client, round_id, seeds_count, width, height, states, out_dir)
 
 
 def _capture_ground_truth(
-    client: AstarClient,
-    round_id: str,
-    seeds_count: int,
-    out_dir: Path,
+    client: AstarClient, round_id: str, seeds_count: int, out_dir: Path
 ) -> bool:
     """Fetch ground truth from the analysis endpoint."""
     logger.info("Fetching ground truth from analysis endpoint")
@@ -196,12 +178,8 @@ def _capture_ground_truth(
     return captured > 0
 
 
-def _save_analysis_artifacts(
-    analysis: dict,
-    seed_idx: int,
-    seed_dir: Path,
-) -> None:
-    """Persist ground truth, prediction, and metadata from an analysis response."""
+def _save_analysis_artifacts(analysis: dict, seed_idx: int, seed_dir: Path) -> None:
+    """Persist ground truth, prediction, and metadata."""
     if "ground_truth" in analysis:
         gt = np.array(analysis["ground_truth"], dtype=np.float64)
         np.save(seed_dir / "ground_truth.npy", gt)
@@ -211,11 +189,9 @@ def _save_analysis_artifacts(
             gt.shape,
             analysis.get("score") or 0,
         )
-
     if "prediction" in analysis:
         pred = np.array(analysis["prediction"], dtype=np.float64)
         np.save(seed_dir / "our_prediction.npy", pred)
-
     meta = {
         "seed_index": seed_idx,
         "score": analysis.get("score"),
@@ -225,11 +201,7 @@ def _save_analysis_artifacts(
     (seed_dir / "analysis_meta.json").write_text(json.dumps(meta, indent=2))
 
 
-def _capture_predictions(
-    client: AstarClient,
-    round_id: str,
-    out_dir: Path,
-) -> None:
+def _capture_predictions(client: AstarClient, round_id: str, out_dir: Path) -> None:
     """Fetch our submitted predictions."""
     try:
         preds = client.my_predictions(round_id)
@@ -238,110 +210,6 @@ def _capture_predictions(
             logger.info("Saved %d prediction summaries", len(preds))
     except APIError as e:
         logger.info("Could not fetch predictions: %s", e)
-
-
-def _capture_viewports(
-    client: AstarClient,
-    round_id: str,
-    seeds_count: int,
-    width: int,
-    height: int,
-    states: list,
-    out_dir: Path,
-) -> None:
-    """Use viewport queries to observe final states (active rounds)."""
-    logger.info("Starting viewport queries (budget: 50)")
-    planner = QueryPlanner(width, height)
-    observations: dict[int, list[dict]] = {i: [] for i in range(seeds_count)}
-
-    for seed_idx in range(seeds_count):
-        budget_exhausted = _query_seed_viewports(
-            client,
-            round_id,
-            seed_idx,
-            states[seed_idx][0],
-            planner,
-            observations,
-        )
-        if budget_exhausted:
-            break
-
-    _save_observations(observations, out_dir)
-
-
-def _query_seed_viewports(
-    client: AstarClient,
-    round_id: str,
-    seed_idx: int,
-    initial_grid: np.ndarray,
-    planner: QueryPlanner,
-    observations: dict[int, list[dict]],
-) -> bool:
-    """Query all viewports for one seed. Returns True if budget exhausted."""
-    viewports = planner.plan_initial_queries(seed_idx, initial_grid)
-    for vp in viewports:
-        try:
-            obs = _execute_viewport_query(client, round_id, vp)
-            observations[seed_idx].append(obs)
-            remaining = client.queries_remaining(round_id)
-            logger.info(
-                "Seed %d: queried (%d,%d) %dx%d -- %d remaining",
-                seed_idx,
-                vp.viewport_x,
-                vp.viewport_y,
-                vp.viewport_w,
-                vp.viewport_h,
-                remaining,
-            )
-        except BudgetExhaustedError:
-            logger.warning("Budget exhausted at seed %d", seed_idx)
-            return True
-        except APIError as e:
-            logger.warning("Query failed for seed %d: %s", seed_idx, e)
-    return False
-
-
-def _execute_viewport_query(
-    client: AstarClient,
-    round_id: str,
-    vp: Viewport,
-) -> dict:
-    """Execute a single viewport query and return the observation dict."""
-    result = client.query(
-        round_id,
-        vp.seed_index,
-        vp.viewport_x,
-        vp.viewport_y,
-        vp.viewport_w,
-        vp.viewport_h,
-    )
-    return {
-        "seed_index": vp.seed_index,
-        "viewport": {
-            "x": vp.viewport_x,
-            "y": vp.viewport_y,
-            "w": vp.viewport_w,
-            "h": vp.viewport_h,
-        },
-        "grid": result.get("grid"),
-        "settlements": result.get("settlements"),
-    }
-
-
-def _save_observations(
-    observations: dict[int, list[dict]],
-    out_dir: Path,
-) -> None:
-    """Persist collected viewport observations to disk."""
-    for seed_idx, obs_list in observations.items():
-        if obs_list:
-            seed_dir = out_dir / f"seed_{seed_idx}"
-            seed_dir.mkdir(exist_ok=True)
-            (seed_dir / "observations.json").write_text(
-                json.dumps(obs_list, indent=2, default=str),
-            )
-    total_obs = sum(len(v) for v in observations.values())
-    logger.info("Saved %d observations", total_obs)
 
 
 def _write_summary(
@@ -379,10 +247,7 @@ def _write_summary(
 def main() -> None:
     parser = argparse.ArgumentParser(description="Capture data from a competition round")
     parser.add_argument("--token", required=True, help="JWT auth token")
-    parser.add_argument(
-        "--round-id",
-        help="Round ID to capture (omit to list rounds)",
-    )
+    parser.add_argument("--round-id", help="Round ID to capture (omit to list rounds)")
     args = parser.parse_args()
 
     client = AstarClient(args.token)
