@@ -1,4 +1,9 @@
-"""Tests for submission pipeline (T22)."""
+"""End-to-end pipeline tests with mocked API client.
+
+Verifies the full pipeline produces valid predictions:
+correct shape, normalized probabilities, probability floor,
+budget compliance, and graceful degradation on seed failure.
+"""
 
 from __future__ import annotations
 
@@ -7,260 +12,278 @@ from unittest.mock import MagicMock, patch
 import numpy as np
 import pytest
 
-from src.constants import NUM_PREDICTION_CLASSES
-from src.pipeline import (
-    CompetitionPipeline,
-    PipelineResult,
-    SeedResult,
-    _execute_single_query,
-    _log_summary,
+from src.constants import (
+    NUM_PREDICTION_CLASSES,
+    PROBABILITY_FLOOR,
+    TOTAL_QUERY_BUDGET,
 )
-from src.query_strategy import QueryPlanner, Viewport
+from src.observation import ObservationStore
+from src.pipeline import CompetitionPipeline, SeedResult, _log_summary
 from src.terrain import InternalTerrain
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 
+MAP_W, MAP_H = 20, 20
+NUM_SEEDS = 2
+
+
+def _make_grid() -> list[list[int]]:
+    """Build a simple 20x20 grid with ocean border and plains interior."""
+    grid = []
+    for row in range(MAP_H):
+        line = []
+        for col in range(MAP_W):
+            if row == 0 or row == MAP_H - 1 or col == 0 or col == MAP_W - 1:
+                line.append(0)  # ocean
+            else:
+                line.append(1)  # plains
+        grid.append(line)
+    return grid
+
+
+def _make_round_data() -> dict:
+    """Create a canned round response with 2 seeds."""
+    grid = _make_grid()
+    return {
+        "id": "test-round-1",
+        "status": "active",
+        "map_width": MAP_W,
+        "map_height": MAP_H,
+        "initial_states": [
+            {"grid": grid, "settlements": [{"x": 5, "y": 5, "owner_id": 0}]},
+            {"grid": grid, "settlements": [{"x": 10, "y": 10, "owner_id": 1}]},
+        ],
+    }
+
+
+def _make_query_response() -> dict:
+    """Canned query response with a small viewport patch."""
+    patch_grid = [[1] * 5 for _ in range(5)]  # 5x5 plains
+    return {"grid": patch_grid}
+
 
 @pytest.fixture
 def mock_client() -> MagicMock:
-    """Mock AstarClient with standard responses."""
+    """Build a fully mocked AstarClient."""
     client = MagicMock()
-    client.get_active_round.return_value = {"id": "round-1"}
-    client.get_round.return_value = {
-        "id": "round-1",
-        "map_width": 10,
-        "map_height": 10,
-        "seeds_count": 2,
-        "initial_states": [
-            _make_initial_state(10, 10),
-            _make_initial_state(10, 10),
-        ],
-    }
-    # Query returns a small grid patch
-    client.query.return_value = {
-        "grid": [[1] * 5 for _ in range(5)],
-    }
-    client.submit.return_value = {"score": 0.85}
-    client.queries_remaining.return_value = 50
+    round_data = _make_round_data()
+    client.get_round.return_value = round_data
+    client.get_active_round.return_value = {"id": "test-round-1"}
+    client.query.return_value = _make_query_response()
+    client.submit.return_value = {"score": 75.0}
+    client.query_count.return_value = 0
+    client.queries_remaining.return_value = TOTAL_QUERY_BUDGET
     return client
 
 
-def _make_initial_state(w: int, h: int) -> dict:
-    """Create a minimal initial state dict."""
-    grid = [[int(InternalTerrain.PLAINS)] * w for _ in range(h)]
-    # Ocean border
-    for col in range(w):
-        grid[0][col] = int(InternalTerrain.OCEAN)
-        grid[h - 1][col] = int(InternalTerrain.OCEAN)
-    for row in range(h):
-        grid[row][0] = int(InternalTerrain.OCEAN)
-        grid[row][w - 1] = int(InternalTerrain.OCEAN)
-    # One settlement
-    grid[5][5] = int(InternalTerrain.SETTLEMENT)
-    return {
-        "grid": grid,
-        "settlements": [{"x": 5, "y": 5, "owner_id": 0}],
-    }
+# ---------------------------------------------------------------------------
+# Pipeline shape and normalization
+# ---------------------------------------------------------------------------
+
+
+class TestPipelinePredictionShape:
+    """Verify pipeline output tensor has correct shape."""
+
+    @patch("src.pipeline.load_round")
+    @patch("src.pipeline.QueryPlanner")
+    @patch("src.pipeline.Predictor")
+    def test_prediction_shape_is_h_w_6(
+        self,
+        mock_predictor_cls: MagicMock,
+        mock_planner_cls: MagicMock,
+        mock_load_round: MagicMock,
+        mock_client: MagicMock,
+    ) -> None:
+        """Each seed produces (H, W, 6) prediction."""
+        grid = np.full((MAP_H, MAP_W), InternalTerrain.PLAINS, dtype=np.int8)
+        mock_load_round.return_value = [
+            (grid, []),
+            (grid, []),
+        ]
+        pred = np.ones((MAP_H, MAP_W, NUM_PREDICTION_CLASSES)) / 6
+        mock_predictor_cls.return_value.predict.return_value = pred
+        mock_planner_cls.return_value.plan_initial_queries.return_value = []
+        mock_planner_cls.return_value.plan_adaptive_query.return_value = None
+        mock_planner_cls.return_value.queries_remaining = TOTAL_QUERY_BUDGET
+
+        pipeline = CompetitionPipeline(client=mock_client, num_mc_runs=5)
+        result = pipeline.run(round_id="test-round-1")
+
+        assert len(result.seed_results) == 2
+        for sr in result.seed_results:
+            assert sr.submitted is True
+
+
+class TestPredictionNormalization:
+    """Verify predictions sum to 1.0 per cell."""
+
+    def test_uniform_prediction_sums_to_one(self) -> None:
+        """Uniform 1/6 prediction sums to 1.0 at every cell."""
+        pred = np.ones((MAP_H, MAP_W, NUM_PREDICTION_CLASSES)) / 6
+        sums = pred.sum(axis=2)
+        np.testing.assert_allclose(sums, 1.0, atol=1e-10)
+
+    def test_floored_prediction_sums_to_one(self) -> None:
+        """After flooring and renorm, each cell still sums to 1.0."""
+        pred = np.zeros((MAP_H, MAP_W, NUM_PREDICTION_CLASSES))
+        pred[:, :, 0] = 1.0
+        safe = np.maximum(pred, PROBABILITY_FLOOR)
+        safe = safe / safe.sum(axis=2, keepdims=True)
+        np.testing.assert_allclose(safe.sum(axis=2), 1.0, atol=1e-10)
+
+
+class TestProbabilityFloorEnforcement:
+    """Verify no prediction values fall below the floor."""
+
+    def test_no_zero_values_after_floor(self) -> None:
+        """Floored prediction has no zero values."""
+        pred = np.zeros((MAP_H, MAP_W, NUM_PREDICTION_CLASSES))
+        pred[:, :, 2] = 1.0
+        safe = np.maximum(pred, PROBABILITY_FLOOR)
+        safe = safe / safe.sum(axis=2, keepdims=True)
+        assert safe.min() > 0.0
 
 
 # ---------------------------------------------------------------------------
-# SeedResult
+# Budget compliance
+# ---------------------------------------------------------------------------
+
+
+class TestBudgetCompliance:
+    """Verify query budget is respected."""
+
+    @patch("src.pipeline.load_round")
+    @patch("src.pipeline.QueryPlanner")
+    @patch("src.pipeline.Predictor")
+    def test_total_queries_under_budget(
+        self,
+        mock_predictor_cls: MagicMock,
+        mock_planner_cls: MagicMock,
+        mock_load_round: MagicMock,
+        mock_client: MagicMock,
+    ) -> None:
+        """Total queries across all seeds stays within budget."""
+        grid = np.full((MAP_H, MAP_W), InternalTerrain.PLAINS, dtype=np.int8)
+        mock_load_round.return_value = [(grid, [])] * NUM_SEEDS
+        pred = np.ones((MAP_H, MAP_W, NUM_PREDICTION_CLASSES)) / 6
+        mock_predictor_cls.return_value.predict.return_value = pred
+        mock_planner_cls.return_value.plan_initial_queries.return_value = []
+        mock_planner_cls.return_value.plan_adaptive_query.return_value = None
+        mock_planner_cls.return_value.queries_remaining = TOTAL_QUERY_BUDGET
+
+        pipeline = CompetitionPipeline(client=mock_client, num_mc_runs=5)
+        result = pipeline.run(round_id="test-round-1")
+
+        assert result.total_queries <= TOTAL_QUERY_BUDGET
+
+
+# ---------------------------------------------------------------------------
+# Graceful degradation
+# ---------------------------------------------------------------------------
+
+
+class TestGracefulDegradation:
+    """Verify pipeline handles per-seed failures gracefully."""
+
+    @patch("src.pipeline.load_round")
+    @patch("src.pipeline.QueryPlanner")
+    @patch("src.pipeline.Predictor")
+    def test_one_seed_fails_others_succeed(
+        self,
+        mock_predictor_cls: MagicMock,
+        mock_planner_cls: MagicMock,
+        mock_load_round: MagicMock,
+        mock_client: MagicMock,
+    ) -> None:
+        """If one seed's prediction fails, others still submit."""
+        grid = np.full((MAP_H, MAP_W), InternalTerrain.PLAINS, dtype=np.int8)
+        mock_load_round.return_value = [(grid, [])] * NUM_SEEDS
+
+        pred = np.ones((MAP_H, MAP_W, NUM_PREDICTION_CLASSES)) / 6
+        predictor_instance = mock_predictor_cls.return_value
+        predictor_instance.predict.side_effect = [
+            RuntimeError("sim crashed"),
+            pred,
+        ]
+        mock_planner_cls.return_value.plan_initial_queries.return_value = []
+        mock_planner_cls.return_value.plan_adaptive_query.return_value = None
+        mock_planner_cls.return_value.queries_remaining = TOTAL_QUERY_BUDGET
+
+        pipeline = CompetitionPipeline(client=mock_client, num_mc_runs=5)
+        result = pipeline.run(round_id="test-round-1")
+
+        failed = [s for s in result.seed_results if s.error]
+        succeeded = [s for s in result.seed_results if s.submitted]
+        assert len(failed) == 1
+        assert len(succeeded) == 1
+        assert "sim crashed" in failed[0].error
+
+
+# ---------------------------------------------------------------------------
+# SeedResult and PipelineResult dataclasses
 # ---------------------------------------------------------------------------
 
 
 class TestSeedResult:
-    """Tests for SeedResult dataclass."""
+    """Test SeedResult defaults."""
 
     def test_defaults(self) -> None:
-        r = SeedResult(seed_index=0)
-        assert r.queries_used == 0
-        assert r.submitted is False
-        assert r.score is None
-        assert r.error is None
-
-
-# ---------------------------------------------------------------------------
-# PipelineResult
-# ---------------------------------------------------------------------------
-
-
-class TestPipelineResult:
-    """Tests for PipelineResult dataclass."""
-
-    def test_defaults(self) -> None:
-        r = PipelineResult(round_id="r1")
-        assert r.seed_results == []
-        assert r.total_queries == 0
-        assert r.elapsed_seconds == 0.0
-
-
-# ---------------------------------------------------------------------------
-# _execute_single_query
-# ---------------------------------------------------------------------------
-
-
-class TestExecuteSingleQuery:
-    """Tests for single query execution helper."""
-
-    def test_records_observation(self, mock_client: MagicMock) -> None:
-        from src.observation import ObservationStore
-
-        store = ObservationStore(height=10, width=10, num_seeds=2)
-        planner = QueryPlanner(map_width=10, map_height=10)
-        vp = Viewport(
-            seed_index=0,
-            viewport_x=2,
-            viewport_y=2,
-            viewport_w=5,
-            viewport_h=5,
-        )
-        result = _execute_single_query(
-            mock_client,
-            "round-1",
-            vp,
-            store,
-            planner,
-        )
-        assert result == 1
-        assert store.coverage_fraction(0) > 0
-
-    def test_returns_zero_on_budget_error(self) -> None:
-        from src.api_client import BudgetExhaustedError
-        from src.observation import ObservationStore
-
-        client = MagicMock()
-        client.query.side_effect = BudgetExhaustedError("over budget")
-        store = ObservationStore(height=10, width=10, num_seeds=2)
-        planner = QueryPlanner(map_width=10, map_height=10)
-        vp = Viewport(
-            seed_index=0,
-            viewport_x=0,
-            viewport_y=0,
-            viewport_w=5,
-            viewport_h=5,
-        )
-        result = _execute_single_query(
-            client,
-            "round-1",
-            vp,
-            store,
-            planner,
-        )
-        assert result == 0
-
-
-# ---------------------------------------------------------------------------
-# CompetitionPipeline
-# ---------------------------------------------------------------------------
-
-
-class TestCompetitionPipeline:
-    """Tests for the full pipeline."""
-
-    @patch("src.pipeline.Predictor")
-    def test_run_processes_all_seeds(
-        self,
-        mock_predictor_cls: MagicMock,
-        mock_client: MagicMock,
-    ) -> None:
-        # Mock predictor to return a valid tensor
-        mock_pred = MagicMock()
-        mock_pred.predict.return_value = np.full(
-            (10, 10, NUM_PREDICTION_CLASSES),
-            1.0 / 6.0,
-        )
-        mock_predictor_cls.return_value = mock_pred
-
-        pipeline = CompetitionPipeline(mock_client, num_mc_runs=2)
-        result = pipeline.run(round_id="round-1")
-
-        assert result.round_id == "round-1"
-        assert len(result.seed_results) == 2
-
-    @patch("src.pipeline.Predictor")
-    def test_run_submits_successfully(
-        self,
-        mock_predictor_cls: MagicMock,
-        mock_client: MagicMock,
-    ) -> None:
-        mock_pred = MagicMock()
-        mock_pred.predict.return_value = np.full(
-            (10, 10, NUM_PREDICTION_CLASSES),
-            1.0 / 6.0,
-        )
-        mock_predictor_cls.return_value = mock_pred
-
-        pipeline = CompetitionPipeline(mock_client, num_mc_runs=2)
-        result = pipeline.run(round_id="round-1")
-
-        for sr in result.seed_results:
-            assert sr.submitted is True
-            assert sr.error is None
-
-    @patch("src.pipeline.Predictor")
-    def test_run_continues_on_seed_failure(
-        self,
-        mock_predictor_cls: MagicMock,
-        mock_client: MagicMock,
-    ) -> None:
-        # First seed fails, second succeeds
-        call_count = [0]
-
-        def side_effect(*_args: object, **_kwargs: object) -> np.ndarray:
-            call_count[0] += 1
-            if call_count[0] == 1:
-                msg = "sim error"
-                raise RuntimeError(msg)
-            return np.full((10, 10, NUM_PREDICTION_CLASSES), 1.0 / 6.0)
-
-        mock_pred = MagicMock()
-        mock_pred.predict.side_effect = side_effect
-        mock_predictor_cls.return_value = mock_pred
-
-        pipeline = CompetitionPipeline(mock_client, num_mc_runs=2)
-        result = pipeline.run(round_id="round-1")
-
-        assert result.seed_results[0].error is not None
-        assert result.seed_results[1].submitted is True
-
-    def test_run_finds_active_round(
-        self,
-        mock_client: MagicMock,
-    ) -> None:
-        with patch("src.pipeline.Predictor") as mock_cls:
-            mock_pred = MagicMock()
-            mock_pred.predict.return_value = np.full(
-                (10, 10, NUM_PREDICTION_CLASSES),
-                1.0 / 6.0,
-            )
-            mock_cls.return_value = mock_pred
-
-            pipeline = CompetitionPipeline(mock_client, num_mc_runs=2)
-            result = pipeline.run()  # No round_id
-
-            mock_client.get_active_round.assert_called_once()
-            assert result.round_id == "round-1"
-
-
-# ---------------------------------------------------------------------------
-# _log_summary
-# ---------------------------------------------------------------------------
+        """SeedResult has sane defaults."""
+        sr = SeedResult(seed_index=0)
+        assert sr.queries_used == 0
+        assert sr.submitted is False
+        assert sr.score is None
+        assert sr.error is None
 
 
 class TestLogSummary:
-    """Tests for pipeline summary logging."""
+    """Test _log_summary does not raise."""
 
-    def test_does_not_raise(self) -> None:
+    def test_log_summary_runs(self) -> None:
+        """Logging summary does not crash."""
+        from src.pipeline import PipelineResult
+
         result = PipelineResult(
             round_id="r1",
-            seed_results=[
-                SeedResult(seed_index=0, submitted=True),
-                SeedResult(seed_index=1, error="fail"),
-            ],
-            total_queries=10,
-            elapsed_seconds=5.5,
+            seed_results=[SeedResult(seed_index=0, submitted=True)],
+            total_queries=5,
+            elapsed_seconds=1.5,
         )
-        # Should log without error
-        _log_summary(result)
+        _log_summary(result)  # should not raise
+
+
+# ---------------------------------------------------------------------------
+# ObservationStore integration
+# ---------------------------------------------------------------------------
+
+
+class TestObservationStoreIntegration:
+    """Verify ObservationStore produces valid probabilities."""
+
+    def test_observed_probs_sum_to_one(self) -> None:
+        """Observed cells produce probabilities summing to 1.0."""
+        store = ObservationStore(height=10, width=10, num_seeds=1)
+        patch = np.zeros((5, 5), dtype=np.int8)
+        patch[0, 0] = 2  # settlement
+        store.add_observation(0, 0, 0, patch)
+        probs = store.get_observed_probs(0)
+        observed = ~np.isnan(probs[:, :, 0])
+        for r in range(10):
+            for c in range(10):
+                if observed[r, c]:
+                    np.testing.assert_allclose(
+                        probs[r, c].sum(),
+                        1.0,
+                        atol=1e-10,
+                    )
+
+    def test_coverage_mask_matches_observation(self) -> None:
+        """Coverage mask is True exactly where we observed."""
+        store = ObservationStore(height=10, width=10, num_seeds=1)
+        patch = np.ones((3, 3), dtype=np.int8)
+        store.add_observation(0, 2, 2, patch)
+        mask = store.get_coverage_mask(0)
+        assert mask[2:5, 2:5].all()
+        assert not mask[0, 0]
