@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from src.constants import (
+    CALIBRATION_KL_SCALE,
     NUM_PREDICTION_CLASSES,
     OBSERVATION_WEIGHT,
     PROBABILITY_FLOOR,
@@ -109,41 +110,38 @@ def calibrate_weights(
     mask: np.ndarray,
     num_steps: int = 21,
 ) -> float:
-    """Find optimal observation weight by grid search on KL divergence.
+    """Compute blend weight based on sim-obs agreement.
 
-    Tests blend weights from 0.0 to 1.0 and returns the observation
-    weight that minimizes mean KL divergence on observed cells.
+    When sim and obs agree closely, trust sim more (lower obs weight).
+    When they diverge, trust obs more (higher obs weight).
+    Uses a sigmoid-like mapping from KL divergence to weight.
 
     Args:
         observed_probs: H x W x 6 from observations.
         simulated_probs: H x W x 6 from simulation.
         mask: H x W boolean mask of observed cells.
-        num_steps: Number of weight values to test.
+        num_steps: Unused, kept for backward compatibility.
 
     Returns:
-        Optimal observation weight (0.0 to 1.0).
+        Observation weight (0.1 to 0.95).
     """
     if not mask.any():
         return OBSERVATION_WEIGHT
 
-    best_weight = OBSERVATION_WEIGHT
-    best_kl = float("inf")
+    div = compute_divergence(observed_probs, simulated_probs, mask)
+    mean_kl = float(div["mean_kl"])
 
-    for i in range(num_steps):
-        w = i / (num_steps - 1)
-        blended = w * observed_probs + (1 - w) * simulated_probs
-        result = compute_divergence(observed_probs, blended, mask)
-        mean_kl = float(result["mean_kl"])
-        if mean_kl < best_kl:
-            best_kl = mean_kl
-            best_weight = w
+    # Low KL (sim agrees with obs) -> weight ~0.5 (trust both)
+    # High KL (sim disagrees) -> weight ~0.95 (trust obs more)
+    weight = 0.5 + 0.45 * (1.0 - np.exp(-CALIBRATION_KL_SCALE * mean_kl))
+    weight = float(np.clip(weight, 0.1, 0.95))
 
     logger.info(
-        "Optimal obs weight: %.2f (KL=%.6f)",
-        best_weight,
-        best_kl,
+        "Calibrated obs weight: %.2f (mean_kl=%.6f)",
+        weight,
+        mean_kl,
     )
-    return best_weight
+    return weight
 
 
 def suggest_constant_adjustments(
