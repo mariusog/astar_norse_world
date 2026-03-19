@@ -5,29 +5,29 @@
 ## Active Tasks
 
 ### T10: API client for competition server
-**Status**: open
+**Status**: done
 **Branch**: `core/T10-api-client`
 **Target**: All 4 API endpoints working with auth and error handling
 
 Create `src/api_client.py` (under 300 lines). Must handle:
 
-- [ ] Define `AstarClient` class wrapping `requests.Session`
-- [ ] Constructor accepts JWT token, sets up auth (both cookie and bearer header)
-- [ ] `list_rounds() -> list[dict]` -- GET /astar-island/rounds
-- [ ] `get_round(round_id) -> dict` -- GET /astar-island/rounds/{round_id}
-- [ ] `query(round_id, seed_index, x, y, w, h) -> dict` -- POST /astar-island/simulate with viewport validation (w,h in 5-15)
-- [ ] `submit(round_id, seed_index, prediction: np.ndarray) -> dict` -- POST /astar-island/submit, auto-applies probability floor and renormalization
-- [ ] `get_active_round() -> dict | None` -- convenience: find active round from list
-- [ ] Track query count per round (warn at 45, hard-stop at 50)
-- [ ] Raise typed exceptions: `AuthError`, `BudgetExhaustedError`, `APIError`
-- [ ] Add retry with exponential backoff for transient failures (max 3 retries)
-- [ ] All public methods have type annotations
-- [ ] Self-review: `ruff check src/api_client.py && ruff format --check src/api_client.py`
-- [ ] Tests pass
+- [x] Define `AstarClient` class wrapping `requests.Session`
+- [x] Constructor accepts JWT token, sets up auth (both cookie and bearer header)
+- [x] `list_rounds() -> list[dict]` -- GET /astar-island/rounds
+- [x] `get_round(round_id) -> dict` -- GET /astar-island/rounds/{round_id}
+- [x] `query(round_id, seed_index, x, y, w, h) -> dict` -- POST /astar-island/simulate with viewport validation (w,h in 5-15)
+- [x] `submit(round_id, seed_index, prediction: np.ndarray) -> dict` -- POST /astar-island/submit, auto-applies probability floor and renormalization
+- [x] `get_active_round() -> dict | None` -- convenience: find active round from list
+- [x] Track query count per round (warn at 45, hard-stop at 50)
+- [x] Raise typed exceptions: `AuthError`, `BudgetExhaustedError`, `APIError`
+- [x] Add retry with exponential backoff for transient failures (max 3 retries)
+- [x] All public methods have type annotations
+- [x] Self-review: `ruff check src/api_client.py && ruff format --check src/api_client.py`
+- [x] Tests pass
 
 **Acceptance criteria**: Can authenticate, list rounds, query viewport, submit prediction. Query counter prevents exceeding budget.
 
-**Result**:
+**Result**: Created `src/api_client.py` (238 lines) with AstarClient class. All 4 endpoints implemented. Budget tracking with warning at 45 and hard-stop at 50. Typed exceptions (AuthError, BudgetExhaustedError, APIError). Exponential backoff retry for transient failures. Auto probability floor + renormalization on submit. 19 tests added in `tests/test_api_client.py`, all passing. Clean lint.
 
 ---
 
