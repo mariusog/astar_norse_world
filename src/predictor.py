@@ -13,6 +13,7 @@ import numpy as np
 from src.constants import (
     DEFAULT_MC_RUNS,
     NUM_PREDICTION_CLASSES,
+    OBS_CONFIDENCE_K,
     OBSERVATION_WEIGHT,
     PROBABILITY_FLOOR,
     SIMULATION_WEIGHT,
@@ -83,13 +84,14 @@ class Predictor:
         sim_probs = self._run_simulation(map_seed, num_mc_runs)
         obs_probs = self._obs_store.get_observed_probs(seed_index)
         coverage = self._obs_store.get_coverage_mask(seed_index)
+        obs_counts = self._obs_store.observation_count(seed_index)
 
         blended = _blend_probabilities(
             sim_probs,
             obs_probs,
             coverage,
+            obs_counts,
             self._obs_weight,
-            self._sim_weight,
         )
         blended = _apply_static_terrain(blended, self._grid)
         blended = _apply_floor_and_normalize(blended)
@@ -133,13 +135,14 @@ class Predictor:
         """
         obs_probs = self._obs_store.get_observed_probs(seed_index)
         coverage = self._obs_store.get_coverage_mask(seed_index)
+        obs_counts = self._obs_store.observation_count(seed_index)
 
         blended = _blend_probabilities(
             sim_probs,
             obs_probs,
             coverage,
+            obs_counts,
             self._obs_weight,
-            self._sim_weight,
         )
         blended = _apply_static_terrain(blended, self._grid)
         return _apply_floor_and_normalize(blended)
@@ -154,19 +157,27 @@ def _blend_probabilities(
     sim_probs: np.ndarray,
     obs_probs: np.ndarray,
     coverage_mask: np.ndarray,
-    obs_weight: float,
-    sim_weight: float,
+    obs_counts: np.ndarray,
+    max_obs_weight: float,
 ) -> np.ndarray:
     """Blend simulation and observation probabilities.
 
-    Observed cells: weighted average of obs and sim.
-    Unobserved cells: sim only.
+    Observation weight scales with count: w = max_weight * count/(count+K).
+    With 1 observation and K=5, w = max_weight * 0.17 — sim prior dominates.
+    With 10 observations and K=5, w = max_weight * 0.67 — obs dominates.
+    Unobserved cells use sim only.
     """
     result = sim_probs.copy()
     observed = coverage_mask & ~np.isnan(obs_probs[:, :, 0])
 
-    if observed.any():
-        result[observed] = obs_weight * obs_probs[observed] + sim_weight * sim_probs[observed]
+    if not observed.any():
+        return result
+
+    counts = obs_counts[observed].astype(np.float64)
+    confidence = counts / (counts + OBS_CONFIDENCE_K)
+    w_obs = (max_obs_weight * confidence)[:, np.newaxis]
+    w_sim = 1.0 - w_obs
+    result[observed] = w_obs * obs_probs[observed] + w_sim * sim_probs[observed]
 
     return result
 

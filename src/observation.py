@@ -11,7 +11,7 @@ import logging
 
 import numpy as np
 
-from src.constants import NUM_PREDICTION_CLASSES
+from src.constants import LAPLACE_ALPHA, NUM_PREDICTION_CLASSES
 
 logger = logging.getLogger(__name__)
 
@@ -137,8 +137,8 @@ class ObservationStore:
         obs = self._obs_counts[seed_index]
         observed = obs > 0
 
-        # Laplace smoothing: add 1 to each class count
-        smoothed = counts[observed] + 1.0
+        # Laplace smoothing with small alpha to keep single observations sharp
+        smoothed = counts[observed] + LAPLACE_ALPHA
         totals = smoothed.sum(axis=1, keepdims=True)
         probs[observed] = smoothed / totals
 

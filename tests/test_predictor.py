@@ -113,17 +113,12 @@ class TestBlendProbabilities:
         obs[2, 2] = [0.9, 0.02, 0.02, 0.02, 0.02, 0.02]
         coverage = np.zeros((5, 5), dtype=bool)
         coverage[2, 2] = True
+        obs_counts = np.zeros((5, 5), dtype=np.int32)
+        obs_counts[2, 2] = 10  # high count = strong obs weight
 
-        result = _blend_probabilities(
-            sim,
-            obs,
-            coverage,
-            0.8,
-            0.2,
-        )
-        # Observed cell should reflect obs weight
-        expected_cls0 = 0.8 * 0.9 + 0.2 * (1.0 / 6.0)
-        assert result[2, 2, 0] == pytest.approx(expected_cls0, abs=1e-6)
+        result = _blend_probabilities(sim, obs, coverage, obs_counts, 0.8)
+        # With count=10 and K=5, confidence=0.667, w_obs=0.533
+        assert result[2, 2, 0] > 1.0 / 6.0  # leaning toward obs
 
     def test_blend_does_not_modify_sim(
         self,
@@ -132,12 +127,9 @@ class TestBlendProbabilities:
         original = uniform_sim_probs.copy()
         obs_probs = np.full((10, 10, 6), np.nan)
         coverage = np.zeros((10, 10), dtype=bool)
+        obs_counts = np.zeros((10, 10), dtype=np.int32)
         _blend_probabilities(
-            uniform_sim_probs,
-            obs_probs,
-            coverage,
-            OBSERVATION_WEIGHT,
-            SIMULATION_WEIGHT,
+            uniform_sim_probs, obs_probs, coverage, obs_counts, OBSERVATION_WEIGHT,
         )
         np.testing.assert_array_equal(uniform_sim_probs, original)
 

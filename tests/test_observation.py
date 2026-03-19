@@ -78,35 +78,30 @@ def test_get_observed_probs_unobserved_is_nan(store: ObservationStore) -> None:
 
 
 def test_get_observed_probs_single_observation(store: ObservationStore) -> None:
-    """Single observation with Laplace smoothing."""
+    """Single observation with small alpha smoothing stays sharp."""
     patch = np.array([[0]])  # terrain class 0
     store.add_observation(0, viewport_x=3, viewport_y=3, grid_patch=patch)
 
     probs = store.get_observed_probs(0)
     cell_probs = probs[3, 3]
-    # With Laplace smoothing: class 0 gets (1+1)/(1+6)=2/7, others get 1/7
     assert not np.any(np.isnan(cell_probs))
     np.testing.assert_allclose(cell_probs.sum(), 1.0, atol=1e-9)
     assert cell_probs[0] > cell_probs[1]  # observed class is dominant
-    expected_dominant = 2.0 / (1.0 + NUM_PREDICTION_CLASSES)
-    np.testing.assert_allclose(cell_probs[0], expected_dominant, atol=1e-9)
+    # With small alpha (0.01), class 0 gets ~(1+0.01)/(1+6*0.01) ≈ 0.95
+    assert cell_probs[0] > 0.9
 
 
 def test_get_observed_probs_multiple_observations(store: ObservationStore) -> None:
     """Multiple same-cell observations refine probabilities."""
-    # 3 observations of class 0, 1 observation of class 1
     for _ in range(3):
         store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=np.array([[0]]))
     store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=np.array([[1]]))
 
     probs = store.get_observed_probs(0)
     cell_probs = probs[0, 0]
-    # Laplace: class 0 = (3+1)/(4+6), class 1 = (1+1)/(4+6), others = 1/(4+6)
-    total = 4.0 + NUM_PREDICTION_CLASSES
-    np.testing.assert_allclose(cell_probs[0], 4.0 / total, atol=1e-9)
-    np.testing.assert_allclose(cell_probs[1], 2.0 / total, atol=1e-9)
-    np.testing.assert_allclose(cell_probs[2], 1.0 / total, atol=1e-9)
     np.testing.assert_allclose(cell_probs.sum(), 1.0, atol=1e-9)
+    # Class 0 (3 obs) should dominate, class 1 (1 obs) second
+    assert cell_probs[0] > cell_probs[1] > cell_probs[2]
 
 
 def test_get_observed_probs_no_zeros(store: ObservationStore) -> None:

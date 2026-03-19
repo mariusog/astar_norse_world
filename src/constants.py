@@ -153,3 +153,10 @@ ADAPTIVE_VIEWPORT_MID_SIZE = 10
 
 CALIBRATION_KL_SCALE = 8.0  # sigmoid scaling for KL -> obs weight mapping
 CALIBRATION_BIAS_THRESHOLD = 0.05  # minimum delta to flag a bias as significant
+
+# ---------------------------------------------------------------------------
+# Observation smoothing
+# ---------------------------------------------------------------------------
+
+LAPLACE_ALPHA = 0.01  # Laplace smoothing pseudocount (low = trust observations more)
+OBS_CONFIDENCE_K = 5  # confidence scaling: weight = count / (count + K)
