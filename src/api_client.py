@@ -133,6 +133,34 @@ class AstarClient:
         }
         return self._post("/astar-island/submit", json=body)
 
+    def get_budget(self) -> dict[str, Any]:
+        """GET /astar-island/budget -- query budget for active round."""
+        return self._get("/astar-island/budget")
+
+    def my_rounds(self) -> list[dict[str, Any]]:
+        """GET /astar-island/my-rounds -- rounds with scores and rank."""
+        return self._get("/astar-island/my-rounds")
+
+    def my_predictions(self, round_id: str) -> list[dict[str, Any]]:
+        """GET /astar-island/my-predictions/{round_id} -- submitted predictions."""
+        return self._get(f"/astar-island/my-predictions/{round_id}")
+
+    def analysis(
+        self, round_id: str, seed_index: int,
+    ) -> dict[str, Any]:
+        """GET /astar-island/analysis/{round_id}/{seed_index} -- ground truth comparison.
+
+        Only available after round is completed or during scoring.
+        Returns prediction, ground_truth (H×W×6), score, and initial_grid.
+        """
+        return self._get(
+            f"/astar-island/analysis/{round_id}/{seed_index}",
+        )
+
+    def leaderboard(self) -> list[dict[str, Any]]:
+        """GET /astar-island/leaderboard -- public leaderboard."""
+        return self._get("/astar-island/leaderboard")
+
     def query_count(self, round_id: str) -> int:
         """Return how many queries have been used for this round."""
         return self._query_counts.get(round_id, 0)
