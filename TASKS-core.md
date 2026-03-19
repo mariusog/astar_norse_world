@@ -4,17 +4,76 @@
 
 ## Active Tasks
 
-### T<id>: <title>
-**Status**: open | in-progress | done | blocked
-**Branch**: `core/<task-id>-<description>`
-**Target**: <metric and target value>
+### T10: API client for competition server
+**Status**: open
+**Branch**: `core/T10-api-client`
+**Target**: All 4 API endpoints working with auth and error handling
 
-- [ ] Step 1: ...
-- [ ] Step 2: ...
-- [ ] Self-review: lint + quality check
+Create `src/api_client.py` (under 300 lines). Must handle:
+
+- [ ] Define `AstarClient` class wrapping `requests.Session`
+- [ ] Constructor accepts JWT token, sets up auth (both cookie and bearer header)
+- [ ] `list_rounds() -> list[dict]` -- GET /astar-island/rounds
+- [ ] `get_round(round_id) -> dict` -- GET /astar-island/rounds/{round_id}
+- [ ] `query(round_id, seed_index, x, y, w, h) -> dict` -- POST /astar-island/simulate with viewport validation (w,h in 5-15)
+- [ ] `submit(round_id, seed_index, prediction: np.ndarray) -> dict` -- POST /astar-island/submit, auto-applies probability floor and renormalization
+- [ ] `get_active_round() -> dict | None` -- convenience: find active round from list
+- [ ] Track query count per round (warn at 45, hard-stop at 50)
+- [ ] Raise typed exceptions: `AuthError`, `BudgetExhaustedError`, `APIError`
+- [ ] Add retry with exponential backoff for transient failures (max 3 retries)
+- [ ] All public methods have type annotations
+- [ ] Self-review: `ruff check src/api_client.py && ruff format --check src/api_client.py`
 - [ ] Tests pass
 
-**Result**: <what changed> | <metric before> -> <metric after> | tests: <pass count> pass
+**Acceptance criteria**: Can authenticate, list rounds, query viewport, submit prediction. Query counter prevents exceeding budget.
+
+**Result**:
+
+---
+
+### T11: Initial state loader from server response
+**Status**: open
+**Branch**: `core/T11-initial-state-loader`
+**Target**: Parse server JSON into our internal data structures
+
+Create `src/state_loader.py` (under 150 lines).
+
+- [ ] `load_initial_state(state_json: dict) -> tuple[np.ndarray, list[Settlement]]` -- parse server's `grid` (list of lists of ints) and `settlements` into InternalTerrain grid + Settlement objects
+- [ ] Map server terrain codes to our `InternalTerrain` enum (document any code differences)
+- [ ] Handle server settlement format: extract x, y, owner_id, is_port; set default values for population, food, etc. from constants
+- [ ] `load_round(round_json: dict) -> list[tuple[np.ndarray, list[Settlement]]]` -- load all seeds' initial states
+- [ ] Validate grid dimensions match round's map_width/map_height
+- [ ] All public methods have type annotations and docstrings
+- [ ] Self-review: lint + format check
+- [ ] Tests pass
+
+**Acceptance criteria**: Server JSON round-trips correctly into our internal types. Grid dimensions validated. Settlement properties populated.
+
+**Result**:
+
+---
+
+### T12: Observation aggregator
+**Status**: open
+**Branch**: `core/T12-observation-aggregator`
+**Target**: Aggregate multiple viewport observations into per-cell probability estimates
+
+Create `src/observation.py` (under 200 lines).
+
+- [ ] Define `ObservationStore` class that accumulates viewport observations per seed
+- [ ] `add_observation(seed_index, viewport_x, viewport_y, grid_patch: np.ndarray)` -- store one query result
+- [ ] `get_observed_probs(seed_index) -> np.ndarray` -- return H x W x 6 probability tensor from observations only, using frequency counts where observed, NaN where unobserved
+- [ ] `get_coverage_mask(seed_index) -> np.ndarray` -- boolean H x W mask of which cells have been observed
+- [ ] `observation_count(seed_index) -> np.ndarray` -- H x W count of how many times each cell was observed
+- [ ] Apply Laplace smoothing (add-1) to avoid zero probabilities in observed cells
+- [ ] Handle overlapping viewports correctly (accumulate counts)
+- [ ] Type annotations on all public methods
+- [ ] Self-review: lint + format check
+- [ ] Tests pass
+
+**Acceptance criteria**: Multiple overlapping observations merge correctly. Unobserved cells are distinguished from observed. Probability floors applied.
+
+**Result**:
 
 ---
 
@@ -27,7 +86,3 @@ Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.
 | - | - | - |
 
 ## Completed Tasks
-
-### T<id>: <title>
-**Status**: done
-**Result**: <what changed> | <metric before> -> <metric after> | tests: <pass count> pass
