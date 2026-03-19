@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import logging
 import time
-from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
@@ -21,33 +20,13 @@ from src.constants import (
     TOTAL_QUERY_BUDGET,
 )
 from src.observation import ObservationStore
+from src.pipeline_types import PipelineResult, SeedResult  # re-exported
 from src.predictor import Predictor
 from src.query_strategy import QueryPlanner
 from src.state_loader import load_round
 from src.terrain import grid_to_prediction
 
 logger = logging.getLogger(__name__)
-
-
-@dataclass
-class SeedResult:
-    """Result of processing one seed."""
-
-    seed_index: int
-    queries_used: int = 0
-    submitted: bool = False
-    score: float | None = None
-    error: str | None = None
-
-
-@dataclass
-class PipelineResult:
-    """Result of running the full pipeline."""
-
-    round_id: str
-    seed_results: list[SeedResult] = field(default_factory=list)
-    total_queries: int = 0
-    elapsed_seconds: float = 0.0
 
 
 class CompetitionPipeline:
@@ -108,11 +87,7 @@ class CompetitionPipeline:
             total_budget=TOTAL_QUERY_BUDGET,
             num_seeds=num_seeds,
         )
-        obs_store = ObservationStore(
-            height=height,
-            width=width,
-            num_seeds=num_seeds,
-        )
+        obs_store = ObservationStore(height=height, width=width, num_seeds=num_seeds)
         return planner, obs_store
 
     def _run_all_seeds(
@@ -125,21 +100,12 @@ class CompetitionPipeline:
         """Process every seed and aggregate results."""
         result = PipelineResult(round_id=rid)
         for seed_idx in range(len(states)):
-            seed_result = self._process_seed(
-                rid,
-                seed_idx,
-                states[seed_idx],
-                planner,
-                obs_store,
-            )
+            seed_result = self._process_seed(rid, seed_idx, states[seed_idx], planner, obs_store)
             result.seed_results.append(seed_result)
             result.total_queries += seed_result.queries_used
         return result
 
-    def _resolve_round(
-        self,
-        round_id: str | None,
-    ) -> dict[str, Any]:
+    def _resolve_round(self, round_id: str | None) -> dict[str, Any]:
         """Get round data from server."""
         if round_id:
             return self._client.get_round(round_id)
@@ -160,27 +126,14 @@ class CompetitionPipeline:
         """Process one seed: query, predict, submit."""
         result = SeedResult(seed_index=seed_idx)
         grid, settlements = state
-
         try:
             result.queries_used = self._execute_queries(
-                round_id,
-                seed_idx,
-                grid,
-                planner,
-                obs_store,
+                round_id, seed_idx, grid, planner, obs_store
             )
-            self._submit_prediction(
-                result,
-                round_id,
-                seed_idx,
-                grid,
-                settlements,
-                obs_store,
-            )
+            self._submit_prediction(result, round_id, seed_idx, grid, settlements, obs_store)
         except Exception as exc:
             result.error = str(exc)
             logger.error("Seed %d failed: %s", seed_idx, exc)
-
         return result
 
     def _submit_prediction(
@@ -193,12 +146,7 @@ class CompetitionPipeline:
         obs_store: ObservationStore,
     ) -> None:
         """Generate and submit a prediction, updating *result* in place."""
-        prediction = self._generate_prediction(
-            grid,
-            settlements,
-            obs_store,
-            seed_idx,
-        )
+        prediction = self._generate_prediction(grid, settlements, obs_store, seed_idx)
         response = self._client.submit(round_id, seed_idx, prediction)
         result.submitted = True
         result.score = response.get("score")
@@ -213,20 +161,8 @@ class CompetitionPipeline:
         obs_store: ObservationStore,
     ) -> int:
         """Execute coverage and adaptive queries for one seed."""
-        queries_used = self._execute_initial_queries(
-            round_id,
-            planner,
-            obs_store,
-            seed_idx,
-            grid,
-        )
-        queries_used += self._execute_adaptive_query(
-            round_id,
-            seed_idx,
-            grid,
-            planner,
-            obs_store,
-        )
+        queries_used = self._execute_initial_queries(round_id, planner, obs_store, seed_idx, grid)
+        queries_used += self._execute_adaptive_query(round_id, seed_idx, grid, planner, obs_store)
         return queries_used
 
     def _execute_initial_queries(
@@ -243,13 +179,7 @@ class CompetitionPipeline:
         for vp in viewports:
             if planner.queries_remaining <= 0:
                 break
-            queries_used += _execute_single_query(
-                self._client,
-                round_id,
-                vp,
-                obs_store,
-                planner,
-            )
+            queries_used += _execute_single_query(self._client, round_id, vp, obs_store, planner)
         return queries_used
 
     def _execute_adaptive_query(
@@ -264,13 +194,7 @@ class CompetitionPipeline:
         coverage = obs_store.get_coverage_mask(seed_idx)
         adaptive_vp = planner.plan_adaptive_query(seed_idx, coverage, grid)
         if adaptive_vp and planner.queries_remaining > 0:
-            return _execute_single_query(
-                self._client,
-                round_id,
-                adaptive_vp,
-                obs_store,
-                planner,
-            )
+            return _execute_single_query(self._client, round_id, adaptive_vp, obs_store, planner)
         return 0
 
     def _generate_prediction(
@@ -290,11 +214,6 @@ class CompetitionPipeline:
             seed_index=seed_idx,
             num_mc_runs=self._num_mc_runs,
         )
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
 
 
 def _execute_single_query(
@@ -317,12 +236,7 @@ def _execute_single_query(
         planner.record_query()
         patch = np.array(response["grid"], dtype=np.int8)
         pred_patch = grid_to_prediction(patch)
-        obs_store.add_observation(
-            vp.seed_index,
-            vp.viewport_x,
-            vp.viewport_y,
-            pred_patch,
-        )
+        obs_store.add_observation(vp.seed_index, vp.viewport_x, vp.viewport_y, pred_patch)
         return 1
     except BudgetExhaustedError:
         logger.warning("Budget exhausted during query")
