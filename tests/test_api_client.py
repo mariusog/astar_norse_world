@@ -260,3 +260,45 @@ class TestAuthErrors:
         client._session.request = MagicMock(return_value=resp)
         with pytest.raises(APIError):
             client.list_rounds()
+
+
+# ---------------------------------------------------------------------------
+# New endpoint tests
+# ---------------------------------------------------------------------------
+
+
+class TestNewEndpoints:
+    @pytest.fixture()
+    def client(self) -> AstarClient:
+        return AstarClient("test-token", base_url="http://test")
+
+    def test_get_budget(self, client: AstarClient) -> None:
+        resp = _mock_response(json_data={"queries_used": 10, "queries_max": 50})
+        client._session.request = MagicMock(return_value=resp)
+        result = client.get_budget()
+        assert result["queries_used"] == 10
+
+    def test_my_rounds(self, client: AstarClient) -> None:
+        resp = _mock_response(json_data=[{"round_number": 1, "round_score": 72.5}])
+        client._session.request = MagicMock(return_value=resp)
+        result = client.my_rounds()
+        assert len(result) == 1
+        assert result[0]["round_score"] == 72.5
+
+    def test_my_predictions(self, client: AstarClient) -> None:
+        resp = _mock_response(json_data=[{"seed_index": 0, "score": 80.0}])
+        client._session.request = MagicMock(return_value=resp)
+        result = client.my_predictions("round-1")
+        assert result[0]["seed_index"] == 0
+
+    def test_analysis(self, client: AstarClient) -> None:
+        resp = _mock_response(json_data={"score": 75.0, "width": 40})
+        client._session.request = MagicMock(return_value=resp)
+        result = client.analysis("round-1", 0)
+        assert result["score"] == 75.0
+
+    def test_leaderboard(self, client: AstarClient) -> None:
+        resp = _mock_response(json_data=[{"team_name": "test", "rank": 1}])
+        client._session.request = MagicMock(return_value=resp)
+        result = client.leaderboard()
+        assert result[0]["rank"] == 1
