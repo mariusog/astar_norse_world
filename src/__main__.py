@@ -9,6 +9,7 @@ import sys
 from src.api_client import AstarClient
 from src.constants import DEFAULT_MC_RUNS
 from src.pipeline import CompetitionPipeline
+from src.pipeline_types import PipelineResult
 
 
 def main() -> int:
@@ -65,7 +66,7 @@ def _setup_logging(verbose: bool) -> None:
     )
 
 
-def _print_results(result: object) -> None:
+def _print_results(result: PipelineResult) -> None:
     """Print pipeline results summary."""
     logging.getLogger(__name__).info("Pipeline finished: %s", result)
 

@@ -14,6 +14,7 @@ from pathlib import Path
 import numpy as np
 
 from src.constants import (
+    CALIBRATION_BIAS_THRESHOLD,
     CALIBRATION_KL_SCALE,
     NUM_PREDICTION_CLASSES,
     OBSERVATION_WEIGHT,
@@ -108,7 +109,6 @@ def calibrate_weights(
     observed_probs: np.ndarray,
     simulated_probs: np.ndarray,
     mask: np.ndarray,
-    num_steps: int = 21,
 ) -> float:
     """Compute blend weight based on sim-obs agreement.
 
@@ -120,7 +120,6 @@ def calibrate_weights(
         observed_probs: H x W x 6 from observations.
         simulated_probs: H x W x 6 from simulation.
         mask: H x W boolean mask of observed cells.
-        num_steps: Unused, kept for backward compatibility.
 
     Returns:
         Observation weight (0.1 to 0.95).
@@ -156,12 +155,11 @@ def suggest_constant_adjustments(
         List of suggestion strings.
     """
     suggestions: list[str] = []
-    threshold = 0.05
 
     for bias in biases:
         delta = float(bias["delta"])
         name = bias["class_name"]
-        if abs(delta) < threshold:
+        if abs(delta) < CALIBRATION_BIAS_THRESHOLD:
             continue
         direction = "over" if delta < 0 else "under"
         suggestions.append(
