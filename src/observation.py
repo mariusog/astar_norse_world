@@ -15,6 +15,16 @@ from src.constants import NUM_PREDICTION_CLASSES
 
 logger = logging.getLogger(__name__)
 
+# Server terrain codes -> prediction class index.
+# Server uses: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain,
+#              10=Ocean, 11=Plains
+# Prediction classes: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain
+_SERVER_TO_PRED_CLASS: dict[int, int] = {
+    0: 0, 1: 1, 2: 2, 3: 3, 4: 4, 5: 5,
+    10: 0,  # Ocean -> Empty
+    11: 0,  # Plains -> Empty
+}
+
 
 class ObservationStore:
     """Accumulate viewport observations and compute probability tensors.
@@ -53,6 +63,8 @@ class ObservationStore:
             viewport_x: Left column of the viewport.
             viewport_y: Top row of the viewport.
             grid_patch: 2D array of terrain codes, shape (vh, vw).
+                Accepts both server codes (0-5, 10, 11) and prediction
+                class indices (0-5). Server codes 10/11 map to class 0 (Empty).
         """
         self._ensure_seed(seed_index)
         vh, vw = grid_patch.shape
@@ -65,9 +77,10 @@ class ObservationStore:
                 gx = viewport_x + col
                 if not self._in_bounds(gx, gy):
                     continue
-                terrain_code = int(grid_patch[row, col])
-                if 0 <= terrain_code < NUM_PREDICTION_CLASSES:
-                    counts[gy, gx, terrain_code] += 1
+                raw_code = int(grid_patch[row, col])
+                pred_class = _SERVER_TO_PRED_CLASS.get(raw_code, -1)
+                if 0 <= pred_class < NUM_PREDICTION_CLASSES:
+                    counts[gy, gx, pred_class] += 1
                     obs[gy, gx] += 1
 
         logger.info(
