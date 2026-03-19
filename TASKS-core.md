@@ -54,26 +54,26 @@ Create `src/state_loader.py` (under 150 lines).
 ---
 
 ### T12: Observation aggregator
-**Status**: open
+**Status**: done
 **Branch**: `core/T12-observation-aggregator`
 **Target**: Aggregate multiple viewport observations into per-cell probability estimates
 
 Create `src/observation.py` (under 200 lines).
 
-- [ ] Define `ObservationStore` class that accumulates viewport observations per seed
-- [ ] `add_observation(seed_index, viewport_x, viewport_y, grid_patch: np.ndarray)` -- store one query result
-- [ ] `get_observed_probs(seed_index) -> np.ndarray` -- return H x W x 6 probability tensor from observations only, using frequency counts where observed, NaN where unobserved
-- [ ] `get_coverage_mask(seed_index) -> np.ndarray` -- boolean H x W mask of which cells have been observed
-- [ ] `observation_count(seed_index) -> np.ndarray` -- H x W count of how many times each cell was observed
-- [ ] Apply Laplace smoothing (add-1) to avoid zero probabilities in observed cells
-- [ ] Handle overlapping viewports correctly (accumulate counts)
-- [ ] Type annotations on all public methods
-- [ ] Self-review: lint + format check
-- [ ] Tests pass
+- [x] Define `ObservationStore` class that accumulates viewport observations per seed
+- [x] `add_observation(seed_index, viewport_x, viewport_y, grid_patch: np.ndarray)` -- store one query result
+- [x] `get_observed_probs(seed_index) -> np.ndarray` -- return H x W x 6 probability tensor from observations only, using frequency counts where observed, NaN where unobserved
+- [x] `get_coverage_mask(seed_index) -> np.ndarray` -- boolean H x W mask of which cells have been observed
+- [x] `observation_count(seed_index) -> np.ndarray` -- H x W count of how many times each cell was observed
+- [x] Apply Laplace smoothing (add-1) to avoid zero probabilities in observed cells
+- [x] Handle overlapping viewports correctly (accumulate counts)
+- [x] Type annotations on all public methods
+- [x] Self-review: lint + format check
+- [x] Tests pass
 
 **Acceptance criteria**: Multiple overlapping observations merge correctly. Unobserved cells are distinguished from observed. Probability floors applied.
 
-**Result**:
+**Result**: Created `src/observation.py` (163 lines) with ObservationStore class. Frequency counting with Laplace (add-1) smoothing for observed cells, NaN for unobserved. Overlapping viewports accumulate correctly. Coverage mask and observation count accessors. Out-of-bounds viewport cells clipped. Seeds isolated. 18 tests added in `tests/test_observation.py`, all passing. Clean lint.
 
 ---
 
