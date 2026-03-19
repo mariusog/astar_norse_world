@@ -1,28 +1,11 @@
-"""Shared test fixtures and configuration.
+"""Shared test fixtures and configuration for Norse world simulator."""
 
-Copy this file to your tests/ directory and adapt to your project.
-"""
-
+import numpy as np
 import pytest
 
-# ---------------------------------------------------------------------------
-# Auto-reset global state between tests
-# ---------------------------------------------------------------------------
-
-
-@pytest.fixture(autouse=True)
-def _reset_state():
-    """Reset module-level caches and global state between tests.
-
-    Adapt this to your project's modules that maintain global state.
-    """
-    # Example:
-    # from src import core
-    # core.clear_caches()
-    yield
-    # Teardown: reset again after test
-    # core.clear_caches()
-
+from src.map_generator import generate_map
+from src.settlement import Settlement
+from src.terrain import InternalTerrain
 
 # ---------------------------------------------------------------------------
 # Factory fixtures
@@ -30,67 +13,43 @@ def _reset_state():
 
 
 @pytest.fixture
-def make_config():
-    """Factory for creating test configurations.
+def make_settlement() -> callable:
+    """Factory for creating test settlements with sensible defaults."""
 
-    Returns a function that builds config dicts with sensible defaults.
-    Override specific fields as needed.
-    """
-
-    def _make_config(**overrides):
+    def _make(**overrides: object) -> Settlement:
         defaults = {
-            "seed": 42,
-            "max_steps": 100,
-            "width": 10,
-            "height": 10,
-            "debug": False,
+            "x": 5,
+            "y": 5,
+            "owner_id": 0,
+            "population": 50,
+            "food": 100,
+            "wealth": 0,
+            "defense": 10,
+            "tech_level": 1,
+            "is_port": False,
+            "has_longship": False,
         }
         defaults.update(overrides)
-        return defaults
+        return Settlement(**defaults)  # type: ignore[arg-type]
 
-    return _make_config
+    return _make
 
 
 @pytest.fixture
-def make_state(make_config):
-    """Factory for creating test states.
-
-    Returns a function that builds minimal valid state dicts.
-    All positions are within default grid bounds (0 <= x < 10, 0 <= y < 10).
-    """
-
-    def _make_state(
-        entities=None,
-        items=None,
-        config=None,
-        **overrides,
-    ):
-        state = {
-            "config": config or make_config(),
-            "entities": entities
-            or [
-                {"id": 0, "position": [3, 3], "state": "idle"},
-            ],
-            "items": items or [],
-            "step": 0,
-        }
-        state.update(overrides)
-        return state
-
-    return _make_state
+def small_map() -> tuple[np.ndarray, list[Settlement]]:
+    """A deterministic 20x20 map for fast tests."""
+    return generate_map(seed=42, width=20, height=20)
 
 
-# ---------------------------------------------------------------------------
-# Helpers (importable by test modules)
-# ---------------------------------------------------------------------------
-
-
-def get_action(actions: list[dict], entity_id: int) -> dict:
-    """Extract action for a specific entity from an action list."""
-    for action in actions:
-        if action.get("entity_id") == entity_id or action.get("id") == entity_id:
-            return action
-    raise ValueError(f"No action found for entity {entity_id}")
+@pytest.fixture
+def plains_grid() -> np.ndarray:
+    """A 10x10 grid of plains with ocean border -- no mountains or forests."""
+    grid = np.full((10, 10), InternalTerrain.PLAINS, dtype=np.int8)
+    grid[0, :] = InternalTerrain.OCEAN
+    grid[-1, :] = InternalTerrain.OCEAN
+    grid[:, 0] = InternalTerrain.OCEAN
+    grid[:, -1] = InternalTerrain.OCEAN
+    return grid
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +57,7 @@ def get_action(actions: list[dict], entity_id: int) -> dict:
 # ---------------------------------------------------------------------------
 
 
-def pytest_configure(config):
+def pytest_configure(config: pytest.Config) -> None:
     """Register custom markers."""
     config.addinivalue_line(
         "markers", "slow: marks tests as slow (deselect with '-m \"not slow\"')"
