@@ -13,8 +13,14 @@ from dataclasses import dataclass
 import numpy as np
 
 from src.constants import (
+    ADAPTIVE_VIEWPORT_MID_SIZE,
     DEFAULT_MAP_HEIGHT,
     DEFAULT_MAP_WIDTH,
+    INTEREST_COASTAL_WEIGHT,
+    INTEREST_EXPANSION_ZONE_WEIGHT,
+    INTEREST_NEAR_SETTLEMENT_WEIGHT,
+    INTEREST_SETTLEMENT_RADIUS,
+    INTEREST_UNCOVERED_WEIGHT,
     NUM_SEEDS,
     QUERIES_PER_SEED_COVERAGE,
     TOTAL_QUERY_BUDGET,
@@ -179,19 +185,19 @@ def _compute_interest_map(
     """Score each cell by how much we want to observe it."""
     interest = np.zeros((map_h, map_w), dtype=np.float64)
     uncovered = ~coverage_mask
-    interest[uncovered] += 1.0
+    interest[uncovered] += INTEREST_UNCOVERED_WEIGHT
 
     settlement_mask = _find_settlement_cells(initial_grid)
     proximity = _distance_field(settlement_mask, map_w, map_h)
-    near_settlement = proximity <= 5
-    interest[near_settlement & uncovered] += 3.0
+    near_settlement = proximity <= INTEREST_SETTLEMENT_RADIUS
+    interest[near_settlement & uncovered] += INTEREST_NEAR_SETTLEMENT_WEIGHT
 
     plains_mask = initial_grid == InternalTerrain.PLAINS
-    interest[plains_mask & near_settlement & uncovered] += 2.0
+    interest[plains_mask & near_settlement & uncovered] += INTEREST_EXPANSION_ZONE_WEIGHT
 
     ocean_mask = initial_grid == InternalTerrain.OCEAN
     coastal = _dilate_mask(ocean_mask) & ~ocean_mask
-    interest[coastal & uncovered] += 1.5
+    interest[coastal & uncovered] += INTEREST_COASTAL_WEIGHT
     return interest
 
 
@@ -242,8 +248,8 @@ def _select_best_viewport(
     best_score = -1.0
     best_vp = (0, 0, VIEWPORT_MIN_SIZE, VIEWPORT_MIN_SIZE)
     step = VIEWPORT_MIN_SIZE
-    for vw in (VIEWPORT_MAX_SIZE, 10, VIEWPORT_MIN_SIZE):
-        for vh in (VIEWPORT_MAX_SIZE, 10, VIEWPORT_MIN_SIZE):
+    for vw in (VIEWPORT_MAX_SIZE, ADAPTIVE_VIEWPORT_MID_SIZE, VIEWPORT_MIN_SIZE):
+        for vh in (VIEWPORT_MAX_SIZE, ADAPTIVE_VIEWPORT_MID_SIZE, VIEWPORT_MIN_SIZE):
             for y in range(0, map_h - vh + 1, step):
                 for x in range(0, map_w - vw + 1, step):
                     score = float(interest[y : y + vh, x : x + vw].sum())

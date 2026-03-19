@@ -135,3 +135,20 @@ DEFAULT_MC_RUNS = 100  # default number of Monte Carlo runs for prediction
 
 QUERIES_PER_SEED_COVERAGE = 8  # queries reserved for initial map coverage per seed
 QUERIES_ADAPTIVE_RESERVE = 10  # queries reserved for adaptive follow-up across all seeds
+
+# ---------------------------------------------------------------------------
+# Query strategy: interest scoring
+# ---------------------------------------------------------------------------
+
+INTEREST_UNCOVERED_WEIGHT = 1.0
+INTEREST_NEAR_SETTLEMENT_WEIGHT = 3.0
+INTEREST_EXPANSION_ZONE_WEIGHT = 2.0
+INTEREST_COASTAL_WEIGHT = 1.5
+INTEREST_SETTLEMENT_RADIUS = 5
+ADAPTIVE_VIEWPORT_MID_SIZE = 10
+
+# ---------------------------------------------------------------------------
+# Calibration
+# ---------------------------------------------------------------------------
+
+CALIBRATION_KL_SCALE = 8.0  # sigmoid scaling for KL -> obs weight mapping
