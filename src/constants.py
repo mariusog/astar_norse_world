@@ -102,3 +102,33 @@ REBUILD_POPULATION = 15  # starting population of rebuilt settlement
 NUM_PREDICTION_CLASSES = 6
 PROBABILITY_FLOOR = 0.01  # minimum probability to avoid infinite KL divergence
 SCORE_DECAY_RATE = 3  # exp(-3 * weighted_kl)
+SCORE_ENTROPY_THRESHOLD = 0.01  # cells with entropy below this are "static" (excluded from scoring)
+
+# ---------------------------------------------------------------------------
+# API and query budget
+# ---------------------------------------------------------------------------
+
+API_BASE_URL = "https://api.ainm.no"
+TOTAL_QUERY_BUDGET = 50  # total queries per round across all seeds
+QUERY_WARNING_THRESHOLD = 45  # warn when this many queries used
+VIEWPORT_MIN_SIZE = 5  # minimum viewport dimension
+VIEWPORT_MAX_SIZE = 15  # maximum viewport dimension
+NUM_SEEDS = 5  # seeds per round
+API_RETRY_MAX = 3  # max retries for transient failures
+API_RETRY_BACKOFF = 1.0  # base delay in seconds for exponential backoff
+
+# ---------------------------------------------------------------------------
+# Prediction blending
+# ---------------------------------------------------------------------------
+
+OBSERVATION_WEIGHT = 0.8  # weight for server observations in blended predictions
+SIMULATION_WEIGHT = 0.2  # weight for local Monte Carlo sim in blended predictions
+STATIC_TERRAIN_CONFIDENCE = 0.99  # prob for known-static terrain (mountain, ocean)
+DEFAULT_MC_RUNS = 100  # default number of Monte Carlo runs for prediction
+
+# ---------------------------------------------------------------------------
+# Query strategy
+# ---------------------------------------------------------------------------
+
+QUERIES_PER_SEED_COVERAGE = 8  # queries reserved for initial map coverage per seed
+QUERIES_ADAPTIVE_RESERVE = 10  # queries reserved for adaptive follow-up across all seeds
