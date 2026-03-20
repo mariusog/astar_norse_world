@@ -1,29 +1,42 @@
 # Round-over-Round Analysis
 
-**Rounds analyzed**: 2
-**Generated**: auto
+**Rounds analyzed**: 5 (R1-R5) | **Updated**: 2026-03-20
 
-## Global Terrain Priors (mean probability per class)
+## Two Simulation Regimes
 
-| Round | Empty | Settlement | Port | Ruin | Forest | Mountain |
-|-------|-------|-------|-------|-------|-------|-------|
-| R1 | 0.6304 | 0.1397 | 0.0121 | 0.0109 | 0.1856 | 0.0214 |
-| R2 | 0.6166 | 0.1686 | 0.0125 | 0.0164 | 0.1686 | 0.0173 |
+| Regime | Rounds | Settlements | Avg Entropy | Characteristics |
+|--------|--------|-------------|-------------|-----------------|
+| **Survive** | R1, R2, R5 | 30-50 final | 0.49-0.69 | Settlements persist, high cell uncertainty |
+| **Collapse** | R3, R4 | 0 final | 0.07-0.47 | All settlements collapse to empty/forest |
 
-## Prior Stability (std dev across rounds)
+**Cannot predict regime from initial grid** — survive and collapse rounds have identical initial conditions (~40-50 settlements each).
 
-| Metric | Empty | Settlement | Port | Ruin | Forest | Mountain |
-|-------|-------|-------|-------|-------|-------|-------|
-| Std Dev | 0.0069 | 0.0145 | 0.0002 | 0.0028 | 0.0085 | 0.0021 |
+## Per-Terrain Priors (survive-weighted, all 5 rounds)
 
-## Rolling Backtest (R(N-1) priors -> R(N) score)
+| Terrain | Empty | Settlement | Port | Ruin | Forest | Mountain |
+|---------|-------|------------|------|------|--------|----------|
+| Ocean | 1.000 | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 |
+| Plains | 0.804 | 0.136 | 0.011 | 0.013 | 0.036 | 0.000 |
+| Settlement | 0.430 | 0.336 | 0.005 | 0.027 | 0.201 | 0.000 |
+| Forest | 0.078 | 0.141 | 0.010 | 0.013 | 0.757 | 0.000 |
+| Mountain | 0.000 | 0.000 | 0.000 | 0.000 | 0.000 | 1.000 |
 
-| From | To | Mean Score | Min Seed | Max Seed |
-|------|------|-----------|----------|----------|
-| R1 | R2 | 30.1 | 29.0 | 32.1 |
+## Error Breakdown (% of total weighted KL loss)
 
-## Key Findings
+| Source | % of Loss | Notes |
+|--------|-----------|-------|
+| Plains cells | 61.6% | Largest source — high count, moderate entropy |
+| Forest cells | 29.9% | Second largest — uncertain near settlements |
+| Settlement cells | 8.2% | Small count but high entropy |
+| Ocean/Mountain | 0.0% | Static — perfectly predicted |
 
-- **Most stable**: Port (std=0.0002)
-- **Least stable**: Settlement (std=0.0145)
-- **Avg rolling backtest score**: 30.1/100
+## Backtest Scores (priors + distance, no observations)
+
+| Round | Weight | Score | Regime |
+|-------|--------|-------|--------|
+| R1 | 1.050 | 79.8 | survive |
+| R2 | 1.103 | 80.2 | survive |
+| R3 | 1.158 | 49.5 | collapse |
+| R4 | 1.216 | 89.8 | collapse |
+| R5 | 1.276 | 80.4 | survive |
+| **Avg** | | **75.9** | |
