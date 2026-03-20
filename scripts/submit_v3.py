@@ -209,9 +209,9 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
 # -- Model training -----------------------------------------------------------
 
 _REGIME_EXCLUDE: dict[str, set[int]] = {
-    "survive": {3, 4},
-    "aggressive": {3, 4},
-    "collapse": {1, 2, 5, 6},
+    "survive": {3, 4, 8},  # exclude collapse rounds
+    "aggressive": {3, 4, 8},  # exclude collapse rounds
+    "collapse": {1, 2, 5, 6, 7},  # exclude survive + aggressive
 }
 
 
@@ -316,21 +316,17 @@ def _apply_regime_transforms(pred: np.ndarray, grid: np.ndarray, regime: str) ->
     return apply_transform_chain(pred, grid, transforms)
 
 
-# Aggressive observation calibration: trust observations much more
-_OBS_K = 1.0  # was 5.0 — now observations dominate after just 1-2 obs
-
-
 def _calibrate_from_observations(
     tensor: np.ndarray,
     obs: ObservationStore,
     si: int,
 ) -> np.ndarray:
-    """Replace model predictions with observations where available.
+    """Calibrate predictions from observations with adaptive K.
 
-    Key insight from research: directly using observed frequencies
-    for covered cells is worth +6-7 pts, especially on collapse rounds.
-    With K=1, a single observation gets weight 0.44 (vs 0.13 with K=5).
-    With 2 observations, weight is 0.53. This aggressively trusts the server.
+    Adaptive K: more observations = more trust in server data.
+    - 1 obs: K=3, weight=0.21 (cautious — single obs is noisy)
+    - 2 obs: K=2, weight=0.44
+    - 3+ obs: K=1, weight=0.71 (aggressive — multiple obs reliable)
     """
     obs_probs = obs.get_observed_probs(si)
     mask = obs.get_coverage_mask(si) & ~np.isnan(obs_probs[:, :, 0])
@@ -338,15 +334,15 @@ def _calibrate_from_observations(
         return tensor
     result = tensor.copy()
     counts = obs.observation_count(si)[mask].astype(np.float64)
-    w = (_MAX_OBS_WEIGHT * counts / (counts + _OBS_K))[:, np.newaxis]
+    k = np.maximum(1.0, 4.0 - counts)
+    w = (_MAX_OBS_WEIGHT * counts / (counts + k))[:, np.newaxis]
     result[mask] = w * obs_probs[mask] + (1.0 - w) * tensor[mask]
-    avg_w = float(w.mean())
     logger.info(
-        "Seed %d: calibrated %d cells (%.0f%%), avg_weight=%.2f",
+        "Seed %d: calibrated %d cells (%.0f%%), avg_w=%.2f",
         si,
         int(mask.sum()),
         mask.mean() * 100,
-        avg_w,
+        float(w.mean()),
     )
     return result
 

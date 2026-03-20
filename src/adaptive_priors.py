@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 # Regime weight definitions: round_number -> weight multiplier
 # Rounds weighted 2x are more similar to the target regime
 _REGIME_WEIGHTS: dict[str, dict[int, float]] = {
-    "survive": {1: 2.0, 2: 2.0, 3: 1.0, 4: 1.0, 5: 2.0, 6: 2.0},
-    "aggressive": {1: 2.0, 2: 2.0, 3: 1.0, 4: 1.0, 5: 2.0, 6: 2.0},
-    "collapse": {1: 1.0, 2: 1.0, 3: 2.0, 4: 2.0, 5: 1.0, 6: 1.0},
+    "survive": {1: 2.0, 2: 2.0, 3: 0.5, 4: 0.5, 5: 2.0, 6: 1.0, 7: 1.0, 8: 0.5},
+    "aggressive": {1: 1.0, 2: 1.0, 3: 0.5, 4: 0.5, 5: 1.0, 6: 2.0, 7: 2.0, 8: 0.5},
+    "collapse": {1: 0.5, 2: 0.5, 3: 2.0, 4: 2.0, 5: 0.5, 6: 0.5, 7: 0.5, 8: 2.0},
 }
 
 # Default data directory relative to project root

@@ -45,17 +45,17 @@ class TestGetRegimeWeights:
 
     def test_survive_weights(self) -> None:
         weights = _get_regime_weights("survive")
-        assert weights[1] == 2.0
-        assert weights[3] == 1.0
+        assert weights[1] == 2.0  # survive round weighted high
+        assert weights[3] < weights[1]  # collapse round weighted lower
 
     def test_collapse_weights(self) -> None:
         weights = _get_regime_weights("collapse")
-        assert weights[3] == 2.0
-        assert weights[1] == 1.0
+        assert weights[3] == 2.0  # collapse round weighted high
+        assert weights[1] < weights[3]  # survive round weighted lower
 
     def test_aggressive_weights(self) -> None:
         weights = _get_regime_weights("aggressive")
-        assert weights[1] == 2.0
+        assert weights[6] == 2.0  # aggressive round weighted high
 
     def test_unknown_regime_returns_empty(self) -> None:
         weights = _get_regime_weights("unknown")
