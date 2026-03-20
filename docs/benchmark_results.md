@@ -1,37 +1,48 @@
 # Prediction Quality Benchmarks
 
-**Updated**: 2026-03-20 | **Rounds**: R1-R5 | **Method**: Historical prior backtesting
+**Updated**: 2026-03-20 | **Rounds**: R1-R6 | **Method**: Leave-one-out backtesting
 
-## Strategy Comparison (all 5 rounds, priors only)
+## IMPORTANT: All backtests use Leave-One-Out
 
-| Strategy | R1 | R2 | R3 | R4 | R5 | Avg |
-|----------|-----|-----|-----|-----|-----|-----|
-| Uniform (1/6) | 5.9 | 6.7 | 2.9 | 4.3 | 6.7 | 5.3 |
-| Flat terrain priors | 76.1 | 80.3 | 54.8 | 90.0 | 72.9 | 74.8 |
-| + Distance priors | 79.8 | 80.2 | 49.5 | 89.8 | 80.4 | 75.9 |
-| + 10 obs/seed (simulated) | 81.0 | 79.7 | 54.3 | 89.0 | 81.0 | 77.0 |
+Previous benchmarks were **inflated by ~3-7 pts** due to training-set leakage
+(scoring a round using priors that included that round's data). All numbers
+below use strict LOO: each round is scored using priors built only from OTHER rounds.
 
-## Observation Density Impact (on top of distance priors)
+## Leave-One-Out Backtest (priors only, no observations)
 
-| Obs/cell | Avg Score | Min Score | Notes |
-|----------|-----------|-----------|-------|
-| 0 | 75.9 | 48.4 | Priors only |
-| 1 | 76.6 | 53.1 | +0.7 |
-| 3 | 78.0 | 60.0 | +2.1 |
-| 5 | 80.0 | 65.8 | +4.1 |
-| 10 | 83.6 | 73.5 | +7.7 |
+| Round | Weight | LOO Score | Regime | Notes |
+|-------|--------|-----------|--------|-------|
+| R1 | 1.050 | 76.2 | survive | |
+| R2 | 1.103 | 78.7 | survive | |
+| R3 | 1.158 | 50.5 | collapse | All settlements collapse |
+| R4 | 1.216 | 89.1 | collapse | High score despite collapse |
+| R5 | 1.276 | 74.6 | survive | |
+| R6 | 1.340 | 58.3 | survive (aggressive) | 89-119 final settlements |
+| **Avg** | | **71.2** | | |
 
-## Actual Submission History
+## Three Simulation Regimes Discovered
 
-| Round | Score | Rank | Bug |
-|-------|-------|------|-----|
-| R2 | 28.9 | 116/153 | Laplace add-1 smoothing destroyed observations |
-| R5 | 46.5 | 99/144 | Regime detection misclassified survive as collapse |
-| R6 | TBD | TBD | First submit had uniform priors (wrong data path), resubmitted with fix |
+| Regime | Rounds | Final Settlements | Plains→Settlement | Key Feature |
+|--------|--------|-------------------|-------------------|-------------|
+| Survive | R1, R2, R5 | 17-49 | ~12-19% | Normal expansion |
+| Collapse | R3, R4 | 0-2 | ~0-9% | All settlements die |
+| Aggressive | R6 | 89-119 | **24.6%** | Massive expansion |
 
-## Key Findings
+## Actual Submissions vs LOO Ceiling
 
-- **Priors are the main driver** — terrain type + distance gives 76 avg, observations add ~1-4 pts
-- **Query strategy barely matters** — viewport size, overlap, targeting all score within 0.3 pts
-- **Reliability is the #1 issue** — every submission had a pipeline bug that cost 25-50 pts
-- **Best potential score**: R4 = 89.8 × 1.22 weight = 109.5 (would be top 10)
+| Round | Submitted | LOO Ceiling | Gap | Root Cause |
+|-------|-----------|-------------|-----|------------|
+| R2 | 28.9 | 78.7 | -49.8 | Laplace add-1 bug |
+| R5 | 46.5 | 74.6 | -28.1 | Wrong regime detection |
+| R6 | 56.5 | 58.3 | **-1.8** | First submit burned queries, resubmit was close |
+
+R6 was actually our best submission relative to the LOO ceiling.
+
+## Observation Impact (simulated, on top of LOO priors)
+
+| Obs/cell | Avg LOO Score | Improvement |
+|----------|--------------|-------------|
+| 0 | 71.2 | baseline |
+| 3 | ~73 | +2 |
+| 5 | ~75 | +4 |
+| 10 | ~79 | +8 |
