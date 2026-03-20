@@ -73,17 +73,18 @@ def run_backtest() -> dict[str, Any] | None:
 
 
 def print_summary(collected: list[Any], bt: dict[str, Any] | None) -> None:
-    """Print concise post-round summary."""
-    print(f"\n=== Post-Round Summary ===\nRounds captured: {len(collected)}")
+    """Log concise post-round summary."""
+    logger.info("=== Post-Round Summary ===")
+    logger.info("Rounds captured: %d", len(collected))
     if collected:
-        print(f"  New round IDs: {collected}")
+        logger.info("  New round IDs: %s", collected)
     if bt:
-        print(f"\nBacktest (LOO, 3 obs/cell): avg={bt['avg_score']:.1f}/100")
+        logger.info("Backtest (LOO, 3 obs/cell): avg=%.1f/100", bt["avg_score"])
         for pr in bt["per_round"]:
-            print(f"  R{pr['round']}: {pr['score']:.1f}")
+            logger.info("  R%s: %.1f", pr["round"], pr["score"])
     else:
-        print("\nBacktest: no results (insufficient data)")
-    print("===========================\n")
+        logger.info("Backtest: no results (insufficient data)")
+    logger.info("===========================")
 
 
 def main() -> None:
