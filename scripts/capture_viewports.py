@@ -13,6 +13,7 @@ from pathlib import Path
 import numpy as np
 
 from src.api_client import APIError, AstarClient, BudgetExhaustedError
+from src.constants import TOTAL_QUERY_BUDGET
 from src.query_strategy import QueryPlanner, Viewport
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ def capture_viewports(
     out_dir: Path,
 ) -> None:
     """Use viewport queries to observe final states (active rounds)."""
-    logger.info("Starting viewport queries (budget: 50)")
+    logger.info("Starting viewport queries (budget: %d)", TOTAL_QUERY_BUDGET)
     planner = QueryPlanner(width, height)
     observations: dict[int, list[dict]] = {i: [] for i in range(seeds_count)}
 
