@@ -170,13 +170,15 @@ def _probe_regime(
 
     rate = total_survived / max(total_checked, 1)
     if rate < _COLLAPSE_THRESHOLD:
-        regime = "collapse"
+        regime = "deep_collapse"  # R3, R8-like: near-zero settlement
+    elif rate < 0.12:
+        regime = "partial_collapse"  # R4, R9-like: stochastic, no argmax settlement
     elif rate > _AGGRESSIVE_THRESHOLD:
         regime = "aggressive"
     else:
         regime = "survive"
     logger.info(
-        "Regime: %s (rate=%.2f, %d/%d, %d probes)",
+        "Regime: %s (rate=%.3f, %d/%d, %d probes)",
         regime,
         rate,
         total_survived,
@@ -248,9 +250,10 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
 # -- Model training -----------------------------------------------------------
 
 _REGIME_EXCLUDE: dict[str, set[int]] = {
-    "survive": {3, 4, 8},  # exclude collapse rounds
-    "aggressive": {3, 4, 8},  # exclude collapse rounds
-    "collapse": {1, 2, 5, 6, 7},  # exclude survive + aggressive
+    "survive": {3, 8},  # exclude deep collapse only
+    "aggressive": {3, 8},  # exclude deep collapse only
+    "deep_collapse": {1, 2, 5, 6, 7},  # only collapse rounds
+    "partial_collapse": {3, 8, 6, 7},  # exclude deep collapse + aggressive
 }
 
 
@@ -347,8 +350,9 @@ def _build_prediction(
         fp = fp / fp.sum(axis=2, keepdims=True)
         pred = 0.6 * pred + 0.4 * fp
 
-    # Step 3: Power transform (0.9 smooths slightly)
-    pred = np.power(np.maximum(pred, 1e-10), 0.9)
+    # Step 3: Regime-specific power transform
+    power = _REGIME_POWER.get(regime, 0.9)
+    pred = np.power(np.maximum(pred, 1e-10), power)
     pred = pred / pred.sum(axis=-1, keepdims=True)
 
     # Step 4: Equilibrium shift from observations (per-terrain aggregate)
@@ -395,11 +399,20 @@ def _equilibrium_shift(
     return result
 
 
-# Regime-specific transform chains (from model search results)
+# Regime-specific power transforms (from researcher optimization)
+_REGIME_POWER: dict[str, float] = {
+    "survive": 0.8,
+    "aggressive": 0.6,
+    "deep_collapse": 1.0,
+    "partial_collapse": 0.9,
+}
+
+# Regime-specific post-processing chains
 _REGIME_TRANSFORMS: dict[str, list[tuple[str, dict]]] = {
-    "survive": [("temperature_scale", {"temperature": 1.1}), ("spatial_smooth", {"sigma": 0.3})],
-    "aggressive": [("temperature_scale", {"temperature": 1.2})],
-    "collapse": [("collapse_shift", {"threshold": 0.3})],
+    "survive": [("spatial_smooth", {"sigma": 0.3})],
+    "aggressive": [],
+    "deep_collapse": [("collapse_shift", {"threshold": 0.3})],
+    "partial_collapse": [],
 }
 
 
