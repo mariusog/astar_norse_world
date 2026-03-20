@@ -63,9 +63,9 @@ def main() -> None:
     else:
         regime, probe_used = _probe_regime(client, round_id, states, obs, h, w, args.dry_run)
 
-    # Train XGBoost + build flat priors for ensemble
+    # Train XGBoost + build regime-matched flat priors for ensemble
     model = _train_regime_model(regime)
-    flat_priors = _build_flat_priors()
+    flat_priors = _build_flat_priors(regime)
 
     # Phase 2: Observation queries
     obs_budget = args.budget - probe_used
@@ -94,14 +94,25 @@ def _build_all(
     return predictions, grids
 
 
-def _build_flat_priors() -> np.ndarray:
-    """Build flat terrain priors from all historical rounds."""
+def _build_flat_priors(regime: str = "survive") -> np.ndarray:
+    """Build regime-matched flat terrain priors.
 
+    Uses only rounds matching the regime for the ensemble blend,
+    so collapse priors don't predict settlements.
+    """
+    import json
+
+    exclude = _REGIME_EXCLUDE.get(regime, set())
     accum = np.zeros((7, 6))
     count = np.zeros(7)
     for rd in sorted(Path(_DATA_DIR).iterdir()):
         if not rd.is_dir():
             continue
+        rj = rd / "round.json"
+        if rj.exists():
+            rnum = json.loads(rj.read_text()).get("round_number", 0)
+            if rnum in exclude:
+                continue
         for i in range(5):
             gt_p = rd / f"seed_{i}" / "ground_truth.npy"
             gr_p = rd / f"seed_{i}" / "initial_grid.npy"
