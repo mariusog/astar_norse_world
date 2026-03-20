@@ -66,3 +66,17 @@ class TestGridToPrediction:
         assert result[0, 1] == Terrain.EMPTY
         assert result[1, 0] == Terrain.MOUNTAIN
         assert result[1, 1] == Terrain.FOREST
+
+
+class TestServerGridToInternal:
+    def test_maps_server_codes_correctly(self) -> None:
+        from src.terrain import server_grid_to_internal
+
+        grid_data = [[10, 11, 0], [1, 4, 5]]
+        result = server_grid_to_internal(grid_data)
+        assert result[0, 0] == InternalTerrain.OCEAN
+        assert result[0, 1] == InternalTerrain.PLAINS
+        assert result[0, 2] == InternalTerrain.PLAINS  # server 0 = Empty -> Plains
+        assert result[1, 0] == InternalTerrain.SETTLEMENT
+        assert result[1, 1] == InternalTerrain.FOREST
+        assert result[1, 2] == InternalTerrain.MOUNTAIN
