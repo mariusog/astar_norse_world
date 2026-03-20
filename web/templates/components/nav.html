@@ -1,0 +1,46 @@
+<nav class="main-nav">
+  <div class="nav-brand">Norse World</div>
+  <div class="nav-links">
+    <a href="/" class="nav-link {% if active == 'dashboard' %}active{% endif %}">Dashboard</a>
+    <a href="/rounds" class="nav-link {% if active == 'rounds' %}active{% endif %}">Rounds</a>
+    <a href="/research" class="nav-link {% if active == 'research' %}active{% endif %}">Research</a>
+    <a href="/backtest" class="nav-link {% if active == 'backtest' %}active{% endif %}">Backtest</a>
+  </div>
+</nav>
+
+<style>
+.main-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: #16162a;
+  border-bottom: 1px solid #2a2a4a;
+}
+.nav-brand {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #d4a017;
+  letter-spacing: 0.05em;
+}
+.nav-links {
+  display: flex;
+  gap: 0.25rem;
+}
+.nav-link {
+  color: #a0a0b8;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: color 0.15s, background 0.15s;
+}
+.nav-link:hover {
+  color: #e0e0e0;
+  background: #2a2a4a;
+}
+.nav-link.active {
+  color: #d4a017;
+  background: #2a2a4a;
+}
+</style>

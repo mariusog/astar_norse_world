@@ -1,0 +1,50 @@
+{# HTMX fragment: expandable round detail panel #}
+<tr class="round-detail-row">
+  <td colspan="8">
+    <div class="round-detail-content">
+      <div class="detail-grid">
+
+        <div class="detail-col">
+          <h4>Regime: <span class="regime-tag">{{ round.regime }}</span></h4>
+          <p>Initial settlements: {{ round.initial_settlements }}</p>
+
+          {% if round.gt_distribution %}
+          <h4>GT Class Distribution</h4>
+          <div class="dist-bars">
+            {% for cls, pct in round.gt_distribution.items() %}
+            <div class="dist-row">
+              <span class="dist-label">{{ cls }}</span>
+              <div class="dist-bar-track">
+                <div class="dist-bar-fill" style="width: {{ pct }}%; background: #d4a017;"></div>
+              </div>
+              <span class="dist-val">{{ pct }}%</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="detail-col">
+          {% if round.seed_scores %}
+          <h4>Per-Seed Scores</h4>
+          <div class="seed-bars">
+            {% for score in round.seed_scores %}
+            {% set bar_color = '#4caf50' if score >= 80 else '#ffc107' if score >= 60 else '#f44336' %}
+            <div class="seed-bar-row">
+              <span class="seed-label">S{{ loop.index }}</span>
+              <div class="seed-bar-track">
+                <div class="seed-bar-fill" style="width: {{ score }}%; background: {{ bar_color }};"></div>
+              </div>
+              <span class="seed-val">{{ score }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="no-data">No seed scores available yet.</p>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+  </td>
+</tr>

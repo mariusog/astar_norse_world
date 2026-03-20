@@ -24,10 +24,14 @@ from web.data import (
     load_ground_truth,
     load_initial_grid,
 )
+from web.routes_research import router as research_router
+from web.routes_rounds import router as rounds_router
 
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Norse World Dashboard")
+app.include_router(research_router)
+app.include_router(rounds_router)
 
 BASE_DIR = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Model Research - Norse World</title>
+  <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+    }
+
+    /* -- Layout -- */
+    .page-header {
+      padding: 1rem 1.5rem 0.5rem;
+    }
+    .page-header h1 {
+      font-size: 1.4rem;
+      color: #d4a017;
+    }
+    .page-header p {
+      font-size: 0.85rem;
+      color: #8888a8;
+      margin-top: 0.25rem;
+    }
+    .research-layout {
+      display: flex;
+      gap: 1rem;
+      padding: 1rem 1.5rem;
+      height: calc(100vh - 130px);
+    }
+    .left-panel {
+      flex: 0 0 60%;
+      overflow-y: auto;
+    }
+    .right-panel {
+      flex: 0 0 38%;
+      overflow-y: auto;
+    }
+
+    /* -- Leaderboard table -- */
+    .leaderboard {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    .leaderboard th {
+      text-align: left;
+      padding: 0.6rem 0.5rem;
+      color: #8888a8;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      border-bottom: 1px solid #2a2a4a;
+      position: sticky;
+      top: 0;
+      background: #1a1a2e;
+    }
+    .leaderboard td {
+      padding: 0.5rem;
+      border-bottom: 1px solid #22223a;
+      vertical-align: middle;
+    }
+    .leaderboard tr {
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .leaderboard tbody tr:hover {
+      background: #22223a;
+    }
+    .leaderboard tbody tr.row-best {
+      background: #2a2a1a;
+      border-left: 3px solid #d4a017;
+    }
+    .leaderboard tbody tr.row-selected {
+      background: #1e2a3e;
+      border-left: 3px solid #4a9eff;
+    }
+
+    .model-id {
+      color: #6a6a8a;
+      font-family: monospace;
+      font-size: 0.8rem;
+    }
+    .model-name {
+      font-weight: 600;
+      color: #e0e0e0;
+    }
+
+    /* Score colors */
+    .score-high { color: #4caf50; font-weight: 700; }
+    .score-mid { color: #ffc107; font-weight: 700; }
+    .score-low { color: #f44336; font-weight: 700; }
+
+    .delta-zero { color: #d4a017; }
+    .delta-neg { color: #8888a8; }
+
+    /* Mini round bars inline in table */
+    .mini-bars {
+      display: flex;
+      gap: 2px;
+      align-items: flex-end;
+      height: 20px;
+    }
+    .mini-bar {
+      width: 8px;
+      border-radius: 1px;
+      min-height: 2px;
+    }
+
+    /* Status badges */
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 10px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .status-best { background: #2a4a2a; color: #4caf50; }
+    .status-stable { background: #2a2a4a; color: #8888cc; }
+    .status-testing { background: #4a3a1a; color: #ffc107; }
+    .status-baseline { background: #2a2a2a; color: #6a6a8a; }
+
+    .runtime {
+      color: #8888a8;
+      font-size: 0.8rem;
+      font-family: monospace;
+    }
+
+    /* -- Detail panel (right side) -- */
+    .model-detail-panel {
+      background: #16162a;
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+    .detail-title {
+      font-size: 1.1rem;
+      color: #e0e0e0;
+      margin-bottom: 0.5rem;
+    }
+    .detail-meta {
+      margin: 1rem 0;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+    .meta-row {
+      display: flex;
+      flex-direction: column;
+      gap: 0.15rem;
+    }
+    .meta-label {
+      font-size: 0.7rem;
+      color: #6a6a8a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .meta-value {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .score-value { font-size: 1.3rem; }
+
+    .detail-section {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #2a2a4a;
+    }
+    .detail-section h3 {
+      font-size: 0.8rem;
+      color: #8888a8;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.5rem;
+    }
+    .detail-desc {
+      font-size: 0.85rem;
+      color: #b0b0c8;
+      line-height: 1.5;
+    }
+
+    /* Params */
+    .params-grid {
+      display: grid;
+      gap: 0.3rem;
+    }
+    .param-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+    }
+    .param-key {
+      color: #8888a8;
+      font-family: monospace;
+    }
+    .param-val {
+      color: #e0e0e0;
+      font-family: monospace;
+    }
+
+    /* Per-round bar chart */
+    .round-bars {
+      display: grid;
+      gap: 0.35rem;
+    }
+    .round-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .round-label {
+      font-size: 0.75rem;
+      color: #8888a8;
+      width: 24px;
+      text-align: right;
+    }
+    .round-bar-track {
+      flex: 1;
+      height: 16px;
+      background: #2a2a4a;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .round-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.3s ease;
+    }
+    .round-bar-val {
+      font-size: 0.75rem;
+      color: #b0b0c8;
+      width: 36px;
+      text-align: right;
+      font-family: monospace;
+    }
+
+    /* Backtest button */
+    .detail-actions {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #2a2a4a;
+    }
+    .btn {
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .btn-primary {
+      background: #d4a017;
+      color: #1a1a2e;
+    }
+    .btn-primary:hover {
+      background: #e8b42a;
+    }
+    .backtest-status {
+      margin-top: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.85rem;
+    }
+    .backtest-status.running {
+      background: #2a3a1a;
+      color: #4caf50;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a1a2e; }
+    ::-webkit-scrollbar-thumb { background: #3a3a5a; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  {% include "components/nav.html" %}
+
+  <div class="page-header">
+    <h1>Model Research</h1>
+    <p>Compare prediction strategies and run backtests</p>
+  </div>
+
+  <div class="research-layout">
+    <!-- Left: Leaderboard -->
+    <div class="left-panel">
+      <table class="leaderboard">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Avg Score</th>
+            <th>R1-R7</th>
+            <th>Delta</th>
+            <th>Status</th>
+            <th>Runtime</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for model in models %}
+          <tr class="{% if model.status == 'best' %}row-best{% endif %} {% if model.id == selected.id %}row-selected{% endif %}"
+              hx-get="/research/model/{{ model.id }}"
+              hx-target="#model-detail"
+              hx-swap="innerHTML">
+            <td class="model-id">{{ model.id }}</td>
+            <td class="model-name">{{ model.name }}</td>
+            <td>
+              <span class="{% if model.avg_score >= 80 %}score-high{% elif model.avg_score >= 60 %}score-mid{% else %}score-low{% endif %}">
+                {{ model.avg_score }}
+              </span>
+            </td>
+            <td>
+              <div class="mini-bars">
+                {% for score in model.round_scores %}
+                {% set bar_color = '#4caf50' if score >= 80 else '#ffc107' if score >= 60 else '#f44336' %}
+                <div class="mini-bar" style="height: {{ (score / 100) * 20 }}px; background: {{ bar_color }};"
+                     title="R{{ loop.index }}: {{ score }}"></div>
+                {% endfor %}
+              </div>
+            </td>
+            <td>
+              {% if model.delta == 0 %}
+              <span class="delta-zero">--</span>
+              {% else %}
+              <span class="delta-neg">{{ model.delta }}</span>
+              {% endif %}
+            </td>
+            <td><span class="status-badge status-{{ model.status }}">{{ model.status }}</span></td>
+            <td class="runtime">{{ model.runtime_ms }}ms</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Right: Detail panel -->
+    <div class="right-panel" id="model-detail">
+      {% include "components/model_detail.html" %}
+    </div>
+  </div>
+</body>
+</html>
