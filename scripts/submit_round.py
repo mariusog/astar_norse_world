@@ -44,7 +44,7 @@ logger = logging.getLogger(__name__)
 
 PROBE_VIEWPORT_SIZE = 5
 OBSERVE_VIEWPORT_SIZE = 15
-QUERIES_FOR_PROBES = 2  # per seed
+QUERIES_FOR_PROBES = 1  # per seed (conservative)
 SETTLEMENT_PROBE_RADIUS = 5
 
 
@@ -53,6 +53,12 @@ def main() -> None:
     parser.add_argument("--token", required=True, help="JWT token")
     parser.add_argument("--round-id", help="Round ID (default: active)")
     parser.add_argument("--dry-run", action="store_true", help="Score locally, don't submit")
+    parser.add_argument(
+        "--budget",
+        type=int,
+        default=TOTAL_QUERY_BUDGET,
+        help=f"Max queries to use (default: {TOTAL_QUERY_BUDGET})",
+    )
     args = parser.parse_args()
 
     client = AstarClient(args.token)
@@ -64,7 +70,8 @@ def main() -> None:
     round_data = client.get_round(round_id)
     states = load_round(round_data)
     w, h = round_data.get("map_width", 40), round_data.get("map_height", 40)
-    logger.info("Round %s: %dx%d, %d seeds", round_id, w, h, len(states))
+    budget = args.budget
+    logger.info("Round %s: %dx%d, %d seeds, budget=%d", round_id, w, h, len(states), budget)
 
     # Load historical priors
     regime_priors = build_regime_priors("data/rounds")
@@ -74,7 +81,7 @@ def main() -> None:
         len(regime_priors.get("collapse", {})),
     )
 
-    queries_per_seed = TOTAL_QUERY_BUDGET // NUM_SEEDS
+    queries_per_seed = budget // NUM_SEEDS
     total_used = 0
 
     for seed_idx in range(len(states)):
@@ -96,7 +103,7 @@ def main() -> None:
         pred = build_prediction(grid, regime, regime_priors)
 
         # Phase 3: Observe dynamic cells
-        remaining = min(queries_per_seed - probe_used, TOTAL_QUERY_BUDGET - total_used)
+        remaining = min(queries_per_seed - probe_used, budget - total_used)
         pred, obs_used = _observe_and_blend(
             client,
             round_id,
@@ -142,6 +149,7 @@ def _probe_regime(
     obs_classes: list[int] = []
     queries_used = 0
     for cy, cx in settle_cells[:QUERIES_FOR_PROBES]:
+        cy, cx = int(cy), int(cx)
         vy = max(0, min(h - PROBE_VIEWPORT_SIZE, cy - PROBE_VIEWPORT_SIZE // 2))
         vx = max(0, min(w - PROBE_VIEWPORT_SIZE, cx - PROBE_VIEWPORT_SIZE // 2))
         try:
@@ -240,6 +248,7 @@ def _plan_observation_viewports(
     for cy, cx in zip(settle_ys, settle_xs, strict=True):
         if len(viewports) >= budget:
             break
+        cy, cx = int(cy), int(cx)
         vy = max(0, min(h - OBSERVE_VIEWPORT_SIZE, cy - OBSERVE_VIEWPORT_SIZE // 2))
         vx = max(0, min(w - OBSERVE_VIEWPORT_SIZE, cx - OBSERVE_VIEWPORT_SIZE // 2))
         viewports.append((vx, vy, OBSERVE_VIEWPORT_SIZE, OBSERVE_VIEWPORT_SIZE))
@@ -249,7 +258,7 @@ def _plan_observation_viewports(
         for cy, cx in zip(settle_ys, settle_xs, strict=True):
             if len(viewports) >= budget:
                 break
-            # Offset by half viewport for overlap
+            cy, cx = int(cy), int(cx)
             vy = max(0, min(h - OBSERVE_VIEWPORT_SIZE, cy - 3))
             vx = max(0, min(w - OBSERVE_VIEWPORT_SIZE, cx - 3))
             viewports.append((vx, vy, OBSERVE_VIEWPORT_SIZE, OBSERVE_VIEWPORT_SIZE))
