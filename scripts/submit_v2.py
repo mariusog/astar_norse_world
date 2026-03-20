@@ -75,21 +75,11 @@ def _resolve_round(client: AstarClient, rid: str | None) -> tuple[str, dict[str,
 
 
 def _load_survive_priors() -> np.ndarray:
-    """Return survive-weighted (7, 6) terrain priors from historical GT."""
-    pf = PROBABILITY_FLOOR
-    priors = np.array(
-        [
-            [0.99, 0.002, 0.002, 0.002, 0.002, 0.002],  # Ocean
-            [0.756, 0.173, 0.015, 0.016, 0.041, pf],  # Plains
-            [0.377, 0.410, 0.006, 0.033, 0.174, pf],  # Settlement
-            [0.376, 0.121, 0.300, 0.029, 0.174, pf],  # Port
-            [0.50, 0.10, 0.01, 0.10, 0.28, pf],  # Ruin
-            [0.089, 0.177, 0.014, 0.015, 0.705, pf],  # Forest
-            [0.002, 0.002, 0.002, 0.002, 0.002, 0.99],  # Mountain
-        ],
-        dtype=np.float64,
-    )
-    return priors / priors.sum(axis=1, keepdims=True)
+    """Load survive-weighted (7, 6) terrain priors from historical data."""
+    from src.unified_priors import build_unified_priors
+
+    priors, _dist = build_unified_priors("data/rounds")
+    return priors
 
 
 def _find_settlements(grid: np.ndarray) -> list[tuple[int, int]]:
