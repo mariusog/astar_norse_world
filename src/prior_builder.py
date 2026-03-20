@@ -119,18 +119,14 @@ def _accumulate_seed(
     counts: np.ndarray,
 ) -> None:
     """Accumulate weighted counts from one seed's initial/GT pair."""
-    height, width = initial.shape
-    for y in range(height):
-        for x in range(width):
-            init_type = int(initial[y, x])
-            gt_type = int(gt[y, x])
-
-            if init_type < 0 or init_type >= NUM_INTERNAL_TYPES:
-                continue
-
-            pred_class = _to_prediction_class(gt_type)
-            if 0 <= pred_class < NUM_PREDICTION_CLASSES:
-                counts[init_type, pred_class] += weight
+    pred_map = np.vectorize(_to_prediction_class)(gt)
+    for init_type in range(NUM_INTERNAL_TYPES):
+        mask = initial == init_type
+        if not mask.any():
+            continue
+        pred_vals = pred_map[mask]
+        for pc in range(NUM_PREDICTION_CLASSES):
+            counts[init_type, pc] += weight * int((pred_vals == pc).sum())
 
 
 def _to_prediction_class(internal_val: int) -> int:
@@ -241,23 +237,13 @@ def build_prior_prediction(
     Returns:
         H x W x NUM_PREDICTION_CLASSES probability tensor.
     """
-    height, width = grid.shape
-    prediction = np.zeros(
-        (height, width, NUM_PREDICTION_CLASSES),
-        dtype=np.float64,
-    )
+    grid_clipped = np.clip(grid.astype(np.int32), 0, priors.shape[0] - 1)
+    prediction = priors[grid_clipped].copy()
 
-    for y in range(height):
-        for x in range(width):
-            terrain_type = int(grid[y, x])
-            if 0 <= terrain_type < priors.shape[0]:
-                prediction[y, x] = priors[terrain_type]
-            else:
-                prediction[y, x] = 1.0 / NUM_PREDICTION_CLASSES
-
-    # Ensure floor and normalize per cell
-    for y in range(height):
-        for x in range(width):
-            prediction[y, x] = _apply_floor_to_row(prediction[y, x])
+    # Apply floor per cell using vectorized reshape
+    h, w, c = prediction.shape
+    flat = prediction.reshape(-1, c)
+    for i in range(flat.shape[0]):
+        flat[i] = _apply_floor_to_row(flat[i])
 
     return prediction
