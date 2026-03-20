@@ -241,7 +241,7 @@ def build_prior_prediction(
     prediction = priors[grid_clipped].copy()
 
     # Apply floor per cell using vectorized reshape
-    h, w, c = prediction.shape
+    _h, _w, c = prediction.shape
     flat = prediction.reshape(-1, c)
     for i in range(flat.shape[0]):
         flat[i] = _apply_floor_to_row(flat[i])
