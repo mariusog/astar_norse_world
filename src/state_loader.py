@@ -19,26 +19,9 @@ from src.constants import (
     INITIAL_WEALTH,
 )
 from src.settlement import Settlement
-from src.terrain import InternalTerrain
+from src.terrain import SERVER_TO_INTERNAL, InternalTerrain
 
 logger = logging.getLogger(__name__)
-
-# Server terrain codes -> InternalTerrain mapping.
-# The server uses different codes from our InternalTerrain enum:
-#   Server: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain,
-#           10=Ocean, 11=Plains
-#   Our enum: 0=Ocean, 1=Plains, 2=Settlement, 3=Port, 4=Ruin, 5=Forest,
-#             6=Mountain
-_SERVER_TERRAIN_MAP: dict[int, InternalTerrain] = {
-    0: InternalTerrain.PLAINS,  # Server "Empty" -> Plains
-    1: InternalTerrain.SETTLEMENT,
-    2: InternalTerrain.PORT,
-    3: InternalTerrain.RUIN,
-    4: InternalTerrain.FOREST,
-    5: InternalTerrain.MOUNTAIN,
-    10: InternalTerrain.OCEAN,
-    11: InternalTerrain.PLAINS,
-}
 
 
 def load_initial_state(
@@ -128,7 +111,7 @@ def _map_terrain_code(code: int) -> InternalTerrain:
     Raises:
         ValueError: If code is not recognized.
     """
-    terrain = _SERVER_TERRAIN_MAP.get(code)
+    terrain = SERVER_TO_INTERNAL.get(code)
     if terrain is None:
         msg = f"Unknown server terrain code: {code}"
         raise ValueError(msg)

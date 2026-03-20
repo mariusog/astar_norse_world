@@ -20,21 +20,9 @@ from typing import Any, Protocol
 import numpy as np
 
 from src.constants import NUM_SEEDS
-from src.terrain import InternalTerrain
+from src.terrain import server_grid_to_internal
 
 logger = logging.getLogger(__name__)
-
-# Server terrain code -> InternalTerrain mapping
-SERVER_TERRAIN_MAP: dict[int, int] = {
-    0: InternalTerrain.PLAINS,  # Empty -> Plains
-    1: InternalTerrain.SETTLEMENT,  # Settlement
-    2: InternalTerrain.PORT,  # Port
-    3: InternalTerrain.RUIN,  # Ruin
-    4: InternalTerrain.FOREST,  # Forest
-    5: InternalTerrain.MOUNTAIN,  # Mountain
-    10: InternalTerrain.OCEAN,  # Ocean
-    11: InternalTerrain.PLAINS,  # Plains
-}
 
 
 class RoundClient(Protocol):
@@ -167,22 +155,10 @@ def _collect_seed_data(
 
 
 def _parse_server_grid(grid_data: list[list[int]]) -> np.ndarray:
-    """Convert server grid (list of lists) to InternalTerrain array.
-
-    Maps server terrain codes to InternalTerrain values.
-    """
+    """Convert server grid (list of lists) to InternalTerrain array."""
     if not grid_data:
         return np.array([], dtype=np.int8)
-
-    height = len(grid_data)
-    width = len(grid_data[0]) if grid_data else 0
-    result = np.zeros((height, width), dtype=np.int8)
-
-    for y, row in enumerate(grid_data):
-        for x, val in enumerate(row):
-            result[y, x] = SERVER_TERRAIN_MAP.get(val, InternalTerrain.PLAINS)
-
-    return result
+    return server_grid_to_internal(grid_data)
 
 
 def _save_json(path: Path, data: Any) -> None:

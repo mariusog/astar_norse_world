@@ -9,13 +9,12 @@ from typing import Any
 import numpy as np
 
 from src.round_collector import (
-    SERVER_TERRAIN_MAP,
     _filter_completed_rounds,
     _parse_server_grid,
     _round_already_captured,
     collect_all_rounds,
 )
-from src.terrain import InternalTerrain
+from src.terrain import SERVER_TO_INTERNAL, InternalTerrain
 
 
 class MockClient:
@@ -75,7 +74,7 @@ class TestParseServerGrid:
         assert result[0, 0] == InternalTerrain.SETTLEMENT
 
     def test_maps_all_server_codes(self) -> None:
-        for server_code, internal_code in SERVER_TERRAIN_MAP.items():
+        for server_code, internal_code in SERVER_TO_INTERNAL.items():
             grid_data = [[server_code]]
             result = _parse_server_grid(grid_data)
             assert result[0, 0] == internal_code

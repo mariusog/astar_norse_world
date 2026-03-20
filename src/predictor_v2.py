@@ -20,7 +20,7 @@ from src.constants import (
     STATIC_TERRAIN_CONFIDENCE,
 )
 from src.features import compute_settlement_distance
-from src.terrain import InternalTerrain
+from src.terrain import SERVER_TO_INTERNAL, InternalTerrain
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +38,6 @@ DEFAULT_TERRAIN_PRIORS: dict[int, list[float]] = {
     5: [0.089, 0.177, 0.014, 0.015, 0.705, 0.0],
     6: [0.0, 0.0, 0.0, 0.0, 0.0, 1.0],
 }
-
-_SERVER_TO_INTERNAL = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 10: 0, 11: 1}
 
 
 class PriorPredictor:
@@ -222,7 +220,7 @@ def _accumulate_seed(
         return
     gt = np.load(gt_path)
     grid_raw = np.array(rd["initial_states"][seed_idx]["grid"])
-    internal = np.vectorize(lambda v: _SERVER_TO_INTERNAL.get(v, 1))(grid_raw)
+    internal = np.vectorize(lambda v: SERVER_TO_INTERNAL.get(v, 1))(grid_raw)
     for t_val in range(7):
         mask = internal == t_val
         n = int(mask.sum())

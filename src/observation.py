@@ -12,23 +12,9 @@ import logging
 import numpy as np
 
 from src.constants import LAPLACE_ALPHA, NUM_PREDICTION_CLASSES
+from src.terrain import SERVER_TO_PRED_CLASS
 
 logger = logging.getLogger(__name__)
-
-# Server terrain codes -> prediction class index.
-# Server uses: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain,
-#              10=Ocean, 11=Plains
-# Prediction classes: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain
-_SERVER_TO_PRED_CLASS: dict[int, int] = {
-    0: 0,
-    1: 1,
-    2: 2,
-    3: 3,
-    4: 4,
-    5: 5,
-    10: 0,  # Ocean -> Empty
-    11: 0,  # Plains -> Empty
-}
 
 
 class ObservationStore:
@@ -109,7 +95,7 @@ class ObservationStore:
                 if not self._in_bounds(gx, gy):
                     continue
                 raw_code = int(grid_patch[row, col])
-                pred_class = _SERVER_TO_PRED_CLASS.get(raw_code, -1)
+                pred_class = SERVER_TO_PRED_CLASS.get(raw_code, -1)
                 if 0 <= pred_class < NUM_PREDICTION_CLASSES:
                     counts[gy, gx, pred_class] += 1
                     obs[gy, gx] += 1

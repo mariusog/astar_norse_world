@@ -46,6 +46,47 @@ class InternalTerrain(IntEnum):
         return mapping[self]
 
 
+# ---------------------------------------------------------------------------
+# Server terrain code mappings (canonical — import from here, not elsewhere)
+# ---------------------------------------------------------------------------
+
+# Server codes → InternalTerrain
+# Server: 0=Empty, 1=Settlement, 2=Port, 3=Ruin, 4=Forest, 5=Mountain,
+#         10=Ocean, 11=Plains
+SERVER_TO_INTERNAL: dict[int, InternalTerrain] = {
+    0: InternalTerrain.PLAINS,
+    1: InternalTerrain.SETTLEMENT,
+    2: InternalTerrain.PORT,
+    3: InternalTerrain.RUIN,
+    4: InternalTerrain.FOREST,
+    5: InternalTerrain.MOUNTAIN,
+    10: InternalTerrain.OCEAN,
+    11: InternalTerrain.PLAINS,
+}
+
+# Server codes → prediction class index (0-5)
+SERVER_TO_PRED_CLASS: dict[int, int] = {
+    0: Terrain.EMPTY,
+    1: Terrain.SETTLEMENT,
+    2: Terrain.PORT,
+    3: Terrain.RUIN,
+    4: Terrain.FOREST,
+    5: Terrain.MOUNTAIN,
+    10: Terrain.EMPTY,
+    11: Terrain.EMPTY,
+}
+
+# Default InternalTerrain for unknown server codes
+SERVER_CODE_DEFAULT = InternalTerrain.PLAINS
+
+
+def server_grid_to_internal(grid_data: list[list[int]]) -> np.ndarray:
+    """Convert a server grid (list of lists) to InternalTerrain ndarray."""
+    arr = np.array(grid_data, dtype=np.int32)
+    mapper = np.vectorize(lambda v: SERVER_TO_INTERNAL.get(v, SERVER_CODE_DEFAULT))
+    return mapper(arr).astype(np.int8)
+
+
 def neighbors_4(x: int, y: int, width: int, height: int) -> list[tuple[int, int]]:
     """Return valid 4-connected neighbors within grid bounds."""
     result = []

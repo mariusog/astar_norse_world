@@ -15,14 +15,12 @@ from typing import Any
 import numpy as np
 
 from src.constants import NUM_PREDICTION_CLASSES
-from src.terrain import InternalTerrain
+from src.terrain import SERVER_TO_INTERNAL, InternalTerrain
 
 logger = logging.getLogger(__name__)
 
 MAX_DISTANCE_BAND = 5
 DISTANCE_MODEL_WEIGHT = 0.3
-
-_SERVER_MAP: dict[int, int] = {0: 1, 1: 2, 2: 3, 3: 4, 4: 5, 5: 6, 10: 0, 11: 1}
 
 
 class SettlementDistanceModel:
@@ -134,7 +132,7 @@ def _process_seed(
         return
     gt = np.load(gt_path)
     grid_raw = np.array(rd["initial_states"][seed_idx]["grid"])
-    internal = np.vectorize(lambda v: _SERVER_MAP.get(v, 1))(grid_raw)
+    internal = np.vectorize(lambda v: SERVER_TO_INTERNAL.get(v, 1))(grid_raw)
     height, width = internal.shape
     positions = _extract_settlements(rd["initial_states"][seed_idx], internal)
     dist_map = _compute_distances_from_positions(positions, height, width)
