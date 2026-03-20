@@ -49,13 +49,18 @@ def main() -> None:
 
     # Phase 1: Probe — 1 query per seed on densest settlement cluster
     obs = ObservationStore(h, w, n_seeds)
-    probe_vps = _plan_probe_queries(states, w, h)
-    probe_budget = len(probe_vps)
-    if not args.dry_run:
-        _execute_queries(client, round_id, probe_vps, obs)
-    regime = _detect_regime_from_probes(states, obs, n_seeds)
+    if args.regime:
+        regime = args.regime
+        probe_budget = 0
+        logger.info("Phase 1 skipped: using --regime %s", regime)
+    else:
+        probe_vps = _plan_probe_queries(states, w, h)
+        probe_budget = len(probe_vps)
+        if not args.dry_run:
+            _execute_queries(client, round_id, probe_vps, obs)
+        regime = _detect_regime_from_probes(states, obs, n_seeds)
+        logger.info("Phase 1 done: %d probes, regime=%s", probe_budget, regime)
     priors = _build_adaptive_priors(regime)
-    logger.info("Phase 1 done: %d probes, regime=%s", probe_budget, regime)
 
     # Phase 2: Observe — remaining budget on settlement clusters
     obs_budget = args.budget - probe_budget
@@ -89,6 +94,11 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--budget", type=int, default=TOTAL_QUERY_BUDGET)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--force", action="store_true", help="Submit even if validation fails")
+    p.add_argument(
+        "--regime",
+        choices=["survive", "collapse", "aggressive"],
+        help="Skip probe phase, use this regime directly",
+    )
     return p.parse_args()
 
 
