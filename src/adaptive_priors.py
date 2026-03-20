@@ -1,69 +1,52 @@
-"""Build per-regime adaptive priors from historical round data."""
+"""Regime-adaptive feature model for terrain prediction.
+
+Adjusts historical round weights based on detected regime
+(survive, aggressive, collapse) to produce tuned feature lookups.
+"""
 
 from __future__ import annotations
 
-import json
 import logging
 from pathlib import Path
 
-import numpy as np
+from src.feature_predictor import FeatureLookup, build_feature_lookup
 
 logger = logging.getLogger(__name__)
 
-# Regime -> which historical rounds to use
-_REGIME_ROUNDS: dict[str, tuple[int, ...]] = {
-    "collapse": (3, 4),
-    "aggressive": (1, 2, 5, 6),
-    "survive": (1, 2, 5),
+# Regime weight definitions: round_number -> weight multiplier
+# Rounds weighted 2x are more similar to the target regime
+_REGIME_WEIGHTS: dict[str, dict[int, float]] = {
+    "survive": {1: 2.0, 2: 2.0, 3: 1.0, 4: 1.0, 5: 2.0, 6: 2.0},
+    "aggressive": {1: 2.0, 2: 2.0, 3: 1.0, 4: 1.0, 5: 2.0, 6: 2.0},
+    "collapse": {1: 1.0, 2: 1.0, 3: 2.0, 4: 2.0, 5: 1.0, 6: 1.0},
 }
 
+# Default data directory relative to project root
+_DEFAULT_DATA_DIR = "data/rounds"
 
-def build_adaptive_priors(regime: str, data_dir: str = "data/rounds") -> np.ndarray:
-    """Build (7, 6) terrain priors from rounds matching the detected regime.
 
-    Falls back to all rounds if no matching rounds have data.
+def build_adaptive_feature_lookup(
+    regime: str,
+    data_dir: str | Path = _DEFAULT_DATA_DIR,
+) -> FeatureLookup:
+    """Build feature lookup with regime-specific round weighting.
+
+    Args:
+        regime: One of 'survive', 'aggressive', 'collapse'.
+        data_dir: Path to historical round data directory.
+
+    Returns:
+        Feature lookup table with regime-tuned weights.
     """
-    round_priors = _load_all_round_priors(data_dir)
-    target_rounds = _REGIME_ROUNDS.get(regime, ())
-    selected = [r for r in target_rounds if r in round_priors]
-    if not selected:
-        selected = list(round_priors.keys())
-    result = np.mean([round_priors[r] for r in selected], axis=0)
-    logger.info("Adaptive priors for '%s' from rounds %s", regime, selected)
-    return result
+    weights = _get_regime_weights(regime)
+    logger.info("Building adaptive lookup: regime=%s, weights=%s", regime, weights)
+    return build_feature_lookup(data_dir, regime_weights=weights)
 
 
-def _load_all_round_priors(data_dir: str) -> dict[int, np.ndarray]:
-    """Load per-round flat terrain priors from disk."""
-    rounds_dir = Path(data_dir)
-    result: dict[int, np.ndarray] = {}
-    if not rounds_dir.exists():
-        return result
-    for rd in sorted(rounds_dir.iterdir()):
-        if not rd.is_dir():
-            continue
-        rj = rd / "round.json"
-        if not rj.exists():
-            continue
-        rdata = json.loads(rj.read_text())
-        rnum = rdata.get("round_number", 0)
-        if rnum <= 0:
-            continue
-        accum = np.zeros((7, 6))
-        count = np.zeros(7)
-        for i in range(5):
-            gt_p = rd / f"seed_{i}" / "ground_truth.npy"
-            gr_p = rd / f"seed_{i}" / "initial_grid.npy"
-            if not gt_p.exists() or not gr_p.exists():
-                continue
-            gt, gr = np.load(gt_p), np.load(gr_p)
-            for t in range(7):
-                mask = gr == t
-                if mask.sum() > 0:
-                    accum[t] += gt[mask].sum(axis=0)
-                    count[t] += mask.sum()
-        priors = np.zeros((7, 6))
-        for t in range(7):
-            priors[t] = accum[t] / count[t] if count[t] > 0 else 1 / 6
-        result[rnum] = priors
-    return result
+def _get_regime_weights(regime: str) -> dict[int, float]:
+    """Get round weights for a regime, defaulting to uniform."""
+    weights = _REGIME_WEIGHTS.get(regime)
+    if weights is None:
+        logger.warning("Unknown regime '%s', using uniform weights", regime)
+        return {}
+    return weights
