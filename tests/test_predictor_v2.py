@@ -209,3 +209,15 @@ def test_default_priors_mountain_is_certain_mountain() -> None:
     mtn_prior = DEFAULT_TERRAIN_PRIORS[InternalTerrain.MOUNTAIN]
     assert mtn_prior[5] == 1.0
     assert sum(mtn_prior[:5]) == 0.0
+
+
+@pytest.mark.slow()
+def test_build_priors_from_rounds_returns_valid_priors() -> None:
+    """Integration test: build priors from actual round data."""
+    from src.predictor_v2 import build_priors_from_rounds
+
+    priors = build_priors_from_rounds("data/rounds")
+    assert len(priors) > 0
+    for t_val, vec in priors.items():
+        assert len(vec) == 6
+        assert abs(sum(vec) - 1.0) < 0.01

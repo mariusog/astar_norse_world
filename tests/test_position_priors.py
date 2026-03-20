@@ -250,3 +250,12 @@ def test_predict_from_position_zero_weight_is_flat(
             flat_prior,
             atol=1e-12,
         )
+
+
+@pytest.mark.slow()
+def test_build_distance_model_from_round_data() -> None:
+    """Integration test: build distance model from actual data."""
+    from src.position_priors import build_distance_model
+
+    model = build_distance_model("data/rounds")
+    assert len(model._profiles) > 0
