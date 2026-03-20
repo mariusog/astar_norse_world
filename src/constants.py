@@ -166,13 +166,13 @@ OBS_CONFIDENCE_K = 5  # confidence scaling: weight = count / (count + K)
 # ---------------------------------------------------------------------------
 
 NUM_INTERNAL_TYPES = 7  # number of internal terrain type categories
-DIST_BIN_EDGES = [0, 1, 3, 5, 10, 999]  # distance-to-settlement bin boundaries
+DIST_BIN_EDGES = [0, 1, 2, 3, 4, 5, 7, 10, 15, 999]  # per-distance bins for finer granularity
 
 # ---------------------------------------------------------------------------
 # Prior weighting
 # ---------------------------------------------------------------------------
 
-SURVIVE_WEIGHT = 3.0  # weight for rounds where settlements survived
+SURVIVE_WEIGHT = 2.0  # weight for survive rounds (balanced for collapse too)
 COLLAPSE_WEIGHT = 1.0  # weight for rounds where settlements collapsed
 SURVIVE_ROUNDS = frozenset({1, 2, 5})  # round numbers classified as survive rounds
 
