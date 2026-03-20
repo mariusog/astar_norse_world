@@ -183,3 +183,11 @@ SURVIVE_ROUNDS = frozenset({1, 2, 5})  # round numbers classified as survive rou
 DYNAMIC_SETTLEMENT_RADIUS = 3  # distance threshold for dynamic cells near settlements
 DYNAMIC_FOREST_RADIUS = 3  # forest cells within this distance of settlements are dynamic
 DYNAMIC_DIST_THRESHOLD = 3  # backtest: distance threshold for dynamic cell identification
+
+# ---------------------------------------------------------------------------
+# Feature predictor
+# ---------------------------------------------------------------------------
+
+SETTLEMENT_DENSITY_WINDOW = 7  # window size for settlement density filter
+SETTLEMENT_DENSITY_MAX_BIN = 5  # density values >= this are capped
+FEATURE_PROB_FLOOR = 0.01  # minimum probability per class after lookup
