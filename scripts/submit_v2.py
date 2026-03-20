@@ -1,4 +1,4 @@
-"""Submit predictions v2: survive priors + observation blending, no regime detection."""
+"""Submit predictions v2: survive priors + distance priors + observation blending."""
 
 from __future__ import annotations
 
@@ -14,23 +14,27 @@ from src.api_client import APIError, AstarClient
 from src.constants import (
     DEFAULT_MAP_HEIGHT,
     DEFAULT_MAP_WIDTH,
-    NUM_PREDICTION_CLASSES,
     NUM_SEEDS,
     OBS_CONFIDENCE_K,
     PROBABILITY_FLOOR,
-    STATIC_TERRAIN_CONFIDENCE,
     TOTAL_QUERY_BUDGET,
 )
 from src.observation import ObservationStore
+from src.prediction_validator import validate_predictions
 from src.state_loader import load_round
 from src.terrain import InternalTerrain
+from src.unified_priors import build_distance_priors, build_unified_priors
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
 logger = logging.getLogger(__name__)
 _MAX_OBS_WEIGHT = 0.8
 _VP_SIZE = 15
 _VP_OFFSET = 5
 _QUERY_DELAY = 0.2
+_DATA_DIR = "data/rounds"
 
 
 def main() -> None:
@@ -39,17 +43,28 @@ def main() -> None:
     client = AstarClient(args.token)
     round_id, rd = _resolve_round(client, args.round_id)
     states = load_round(rd)
-    h, w = rd.get("map_height", DEFAULT_MAP_HEIGHT), rd.get("map_width", DEFAULT_MAP_WIDTH)
+    h = rd.get("map_height", DEFAULT_MAP_HEIGHT)
+    w = rd.get("map_width", DEFAULT_MAP_WIDTH)
     n_seeds = rd.get("seeds_count", NUM_SEEDS)
     logger.info("Round %s: %dx%d, %d seeds", round_id, w, h, n_seeds)
-    priors = _load_survive_priors()
+    priors = build_unified_priors(_DATA_DIR)
+    dist_priors = build_distance_priors(_DATA_DIR)
     viewports = _plan_all_queries(states, w, h, args.budget)
     obs = ObservationStore(h, w, n_seeds)
     if not args.dry_run:
         _execute_queries(client, round_id, viewports, obs)
-    for si in range(n_seeds):
-        grid, _ = states[si]
-        pred = _build_prediction(grid, priors, obs, si)
+    predictions = _build_all_predictions(states, priors, dist_priors, obs)
+    grids = [s[0] for s in states]
+    errors = validate_predictions(predictions, grids)
+    if errors and not args.force:
+        for e in errors:
+            logger.error("VALIDATION: %s", e)
+        logger.error("Aborting. Use --force to override.")
+        sys.exit(1)
+    elif errors:
+        for e in errors:
+            logger.warning("VALIDATION (forced): %s", e)
+    for si, pred in enumerate(predictions):
         _submit_seed(client, round_id, si, pred, args.dry_run)
     logger.info("Pipeline complete for round %s", round_id)
 
@@ -57,9 +72,10 @@ def main() -> None:
 def _parse_args() -> argparse.Namespace:
     p = argparse.ArgumentParser(description="Submit predictions v2")
     p.add_argument("--token", required=True, help="JWT auth token")
-    p.add_argument("--round-id", default=None, help="Round ID (default: active)")
+    p.add_argument("--round-id", default=None)
     p.add_argument("--budget", type=int, default=TOTAL_QUERY_BUDGET)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--force", action="store_true", help="Submit even if validation fails")
     return p.parse_args()
 
 
@@ -74,11 +90,7 @@ def _resolve_round(client: AstarClient, rid: str | None) -> tuple[str, dict[str,
     return active["id"], client.get_round(active["id"])
 
 
-def _load_survive_priors() -> np.ndarray:
-    """Load survive-weighted (7, 6) terrain priors from historical data."""
-    from src.unified_priors import build_unified_priors
-
-    return build_unified_priors("data/rounds")
+# -- Viewport planning ------------------------------------------------------
 
 
 def _find_settlements(grid: np.ndarray) -> list[tuple[int, int]]:
@@ -135,7 +147,8 @@ def _tile_viewports(w: int, h: int, budget: int) -> list[dict[str, int]]:
     for y in range(0, h, _VP_SIZE):
         for x in range(0, w, _VP_SIZE):
             if len(vps) < budget:
-                vw, vh = max(5, min(_VP_SIZE, w - x)), max(5, min(_VP_SIZE, h - y))
+                vw = max(5, min(_VP_SIZE, w - x))
+                vh = max(5, min(_VP_SIZE, h - y))
                 vps.append({"x": x, "y": y, "w": vw, "h": vh})
     return vps[:budget]
 
@@ -154,8 +167,14 @@ def _plan_all_queries(
     return all_vps[:budget]
 
 
+# -- Query execution --------------------------------------------------------
+
+
 def _execute_queries(
-    client: AstarClient, round_id: str, vps: list[dict[str, Any]], obs: ObservationStore
+    client: AstarClient,
+    round_id: str,
+    vps: list[dict[str, Any]],
+    obs: ObservationStore,
 ) -> None:
     """Execute all queries and feed results into the observation store."""
     for i, vp in enumerate(vps):
@@ -171,20 +190,48 @@ def _execute_queries(
             grid_data = res.get("grid", [])
             if grid_data:
                 patch = np.array(grid_data, dtype=np.int32)
-                obs.add_observation(int(vp["seed_index"]), int(vp["x"]), int(vp["y"]), patch)
+                obs.add_observation(
+                    int(vp["seed_index"]),
+                    int(vp["x"]),
+                    int(vp["y"]),
+                    patch,
+                )
             logger.info("Query %d/%d seed %d", i + 1, len(vps), vp["seed_index"])
         except APIError as e:
             logger.warning("Query %d failed: %s", i + 1, e)
         time.sleep(_QUERY_DELAY)
 
 
+# -- Prediction building ----------------------------------------------------
+
+
+def _build_all_predictions(
+    states: list[tuple[np.ndarray, list]],
+    priors: np.ndarray,
+    dist_priors: np.ndarray,
+    obs: ObservationStore,
+) -> list[np.ndarray]:
+    """Build predictions for all seeds."""
+    predictions = []
+    for si in range(len(states)):
+        grid, _ = states[si]
+        pred = _build_prediction(grid, priors, dist_priors, obs, si)
+        predictions.append(pred)
+    return predictions
+
+
 def _build_prediction(
-    grid: np.ndarray, priors: np.ndarray, obs: ObservationStore, seed_index: int
+    grid: np.ndarray,
+    priors: np.ndarray,
+    dist_priors: np.ndarray,
+    obs: ObservationStore,
+    seed_index: int,
 ) -> np.ndarray:
-    """Build H x W x 6: priors -> blend obs -> static overrides -> floor."""
-    tensor = priors[np.clip(grid.astype(np.int32), 0, 6)].copy()
+    """Build H x W x 6: dist priors -> blend obs -> static -> floor."""
+    from src.unified_priors import predict_from_priors
+
+    tensor = predict_from_priors(grid, priors, dist_priors)
     tensor = _blend_observations(tensor, obs, seed_index)
-    tensor = _apply_static_overrides(tensor, grid)
     return _floor_and_normalize(tensor)
 
 
@@ -199,19 +246,12 @@ def _blend_observations(tensor: np.ndarray, obs: ObservationStore, seed_index: i
     result = tensor.copy()
     result[mask] = w * obs_probs[mask] + (1.0 - w) * tensor[mask]
     pct = float(mask.mean() * 100)
-    logger.info("Seed %d: blended %d cells (%.1f%%)", seed_index, int(mask.sum()), pct)
-    return result
-
-
-def _apply_static_overrides(tensor: np.ndarray, grid: np.ndarray) -> np.ndarray:
-    """Override ocean/mountain cells with near-certain probabilities."""
-    result = tensor.copy()
-    r = (1.0 - STATIC_TERRAIN_CONFIDENCE) / (NUM_PREDICTION_CLASSES - 1)
-    for terrain, cls in [(InternalTerrain.OCEAN, 0), (InternalTerrain.MOUNTAIN, 5)]:
-        m = grid == terrain
-        if m.any():
-            result[m] = r
-            result[m, cls] = STATIC_TERRAIN_CONFIDENCE
+    logger.info(
+        "Seed %d: blended %d cells (%.1f%%)",
+        seed_index,
+        int(mask.sum()),
+        pct,
+    )
     return result
 
 
@@ -222,7 +262,11 @@ def _floor_and_normalize(tensor: np.ndarray) -> np.ndarray:
 
 
 def _submit_seed(
-    client: AstarClient, round_id: str, si: int, pred: np.ndarray, dry_run: bool
+    client: AstarClient,
+    round_id: str,
+    si: int,
+    pred: np.ndarray,
+    dry_run: bool,
 ) -> None:
     """Submit prediction for one seed."""
     if dry_run:
