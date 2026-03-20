@@ -15,6 +15,7 @@ import argparse
 import logging
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -62,14 +63,15 @@ def main() -> None:
     else:
         regime, probe_used = _probe_regime(client, round_id, states, obs, h, w, args.dry_run)
 
-    # Train XGBoost on matching-regime rounds
+    # Train XGBoost + build flat priors for ensemble
     model = _train_regime_model(regime)
+    flat_priors = _build_flat_priors()
 
     # Phase 2: Observation queries
     obs_budget = args.budget - probe_used
     _run_observations(client, round_id, states, obs, obs_budget, w, h, args.dry_run)
 
-    predictions, grids = _build_all(states, model, obs, regime)
+    predictions, grids = _build_all(states, model, obs, regime, flat_priors)
     _validate_and_submit(client, round_id, predictions, grids, args.dry_run, args.force)
 
 
@@ -81,14 +83,40 @@ def _build_all(
     model: Any,
     obs: ObservationStore,
     regime: str = "survive",
+    flat_priors: np.ndarray | None = None,
 ) -> tuple[list, list]:
     """Build predictions and grids for all seeds."""
     predictions, grids = [], []
     for si in range(len(states)):
         grid = states[si][0]
         grids.append(grid)
-        predictions.append(_build_prediction(grid, model, obs, si, regime))
+        predictions.append(_build_prediction(grid, model, obs, si, regime, flat_priors))
     return predictions, grids
+
+
+def _build_flat_priors() -> np.ndarray:
+    """Build flat terrain priors from all historical rounds."""
+
+    accum = np.zeros((7, 6))
+    count = np.zeros(7)
+    for rd in sorted(Path(_DATA_DIR).iterdir()):
+        if not rd.is_dir():
+            continue
+        for i in range(5):
+            gt_p = rd / f"seed_{i}" / "ground_truth.npy"
+            gr_p = rd / f"seed_{i}" / "initial_grid.npy"
+            if not gt_p.exists() or not gr_p.exists():
+                continue
+            gt, gr = np.load(gt_p), np.load(gr_p)
+            for t in range(7):
+                mask = gr == t
+                if mask.sum() > 0:
+                    accum[t] += gt[mask].sum(axis=0)
+                    count[t] += mask.sum()
+    priors = np.zeros((7, 6))
+    for t in range(7):
+        priors[t] = accum[t] / count[t] if count[t] > 0 else 1 / 6
+    return priors
 
 
 def _validate_and_submit(
@@ -292,12 +320,68 @@ def _build_prediction(
     obs: ObservationStore,
     si: int,
     regime: str = "survive",
+    flat_priors: np.ndarray | None = None,
 ) -> np.ndarray:
-    """XGBoost base → regime transforms → aggressive observation replace → floor."""
+    """Ensemble + power + equilibrium shift + observation calibration."""
+    # Step 1: XGBoost prediction
     pred = predict_grid(grid, model)
+
+    # Step 2: Ensemble with flat priors (0.6/0.4 blend smooths overconfidence)
+    if flat_priors is not None:
+        gi = np.clip(grid.astype(np.int32), 0, flat_priors.shape[0] - 1)
+        fp = flat_priors[gi].copy()
+        fp[grid == InternalTerrain.OCEAN] = [1, 0, 0, 0, 0, 0]
+        fp[grid == InternalTerrain.MOUNTAIN] = [0, 0, 0, 0, 0, 1]
+        fp = np.maximum(fp, PROBABILITY_FLOOR)
+        fp = fp / fp.sum(axis=2, keepdims=True)
+        pred = 0.6 * pred + 0.4 * fp
+
+    # Step 3: Power transform (0.9 smooths slightly)
+    pred = np.power(np.maximum(pred, 1e-10), 0.9)
+    pred = pred / pred.sum(axis=-1, keepdims=True)
+
+    # Step 4: Equilibrium shift from observations (per-terrain aggregate)
+    pred = _equilibrium_shift(pred, grid, obs, si)
+
+    # Step 5: Regime-specific transforms
     pred = _apply_regime_transforms(pred, grid, regime)
-    pred = _calibrate_from_observations(pred, obs, si)
+
     return _floor_and_normalize(pred)
+
+
+def _equilibrium_shift(
+    pred: np.ndarray,
+    grid: np.ndarray,
+    obs: ObservationStore,
+    si: int,
+    weight: float = 0.3,
+) -> np.ndarray:
+    """Shift predictions toward per-terrain marginals from observations.
+
+    Instead of per-cell blending (noisy with 1 obs), compute the average
+    observed distribution per terrain type and shift ALL cells of that
+    type toward it. This is the "Equilibrium Shift" technique.
+    """
+    obs_probs = obs.get_observed_probs(si)
+    mask = obs.get_coverage_mask(si) & ~np.isnan(obs_probs[:, :, 0])
+    if not mask.any():
+        return pred
+
+    result = pred.copy()
+    for t in range(7):
+        terrain_mask = (grid == t) & mask
+        if terrain_mask.sum() < 3:
+            continue
+        # Compute per-terrain equilibrium from observed cells
+        equilibrium = obs_probs[terrain_mask].mean(axis=0)
+        equilibrium = np.maximum(equilibrium, PROBABILITY_FLOOR)
+        equilibrium = equilibrium / equilibrium.sum()
+        # Shift ALL cells of this terrain type toward equilibrium
+        all_terrain = grid == t
+        result[all_terrain] = (1 - weight) * result[all_terrain] + weight * equilibrium
+
+    logger.info("Seed %d: equilibrium shift from %d observed cells", si, int(mask.sum()))
+    return result
 
 
 # Regime-specific transform chains (from model search results)
