@@ -167,9 +167,10 @@ class TestDistancePriorIntegration:
         grid = _make_grid()
         priors = _make_priors()
 
-        # Create synthetic distance priors (7, 5, 6)
-        # Make them different from flat priors
-        dp = np.tile(priors[:, np.newaxis, :], (1, 5, 1))
+        from src.constants import DIST_BIN_EDGES
+
+        num_bins = len(DIST_BIN_EDGES) - 1
+        dp = np.tile(priors[:, np.newaxis, :], (1, num_bins, 1))
         # Shift near-settlement bin to favor settlement outcome
         dp[:, 0, 1] += 0.1
         dp[:, 0] /= dp[:, 0].sum(axis=1, keepdims=True)
