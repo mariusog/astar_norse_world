@@ -198,6 +198,13 @@ FEATURE_PROB_FLOOR = 0.01  # minimum probability per class after lookup
 # Regime detection thresholds
 # ---------------------------------------------------------------------------
 
+REGIME_SURVIVE = "survive"
+REGIME_COLLAPSE = "collapse"
+REGIME_AGGRESSIVE = "aggressive"
 REGIME_COLLAPSE_THRESHOLD = 0.05  # settlement survival rate below this = collapse
 REGIME_AGGRESSIVE_THRESHOLD = 0.35  # settlement survival rate above this = aggressive
 QUERY_DELAY_SECONDS = 0.2  # delay between API queries to avoid rate limiting
+CALIBRATION_MIN_CELLS = 3  # minimum observed cells to apply online calibration
+CALIBRATION_MAX_ADJUST = 0.10  # max per-class adjustment from online calibration
+ONLINE_CALIBRATION_MIN_CELLS = 3  # alias for online_calibration module
+ONLINE_CALIBRATION_MAX_ADJUST = 0.10  # alias for online_calibration module
