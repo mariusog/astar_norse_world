@@ -288,10 +288,20 @@ def _build_prediction(
     obs: ObservationStore,
     si: int,
 ) -> np.ndarray:
-    """XGBoost base → observation blend → static override → floor."""
+    """XGBoost base → transforms → observation blend → floor."""
     pred = predict_grid(grid, model)
+    pred = _apply_best_transforms(pred)
     pred = _blend_observations(pred, obs, si)
     return _floor_and_normalize(pred)
+
+
+def _apply_best_transforms(pred: np.ndarray) -> np.ndarray:
+    """Apply the winning transform chain: temperature 1.1 + spatial smooth 0.3."""
+    from web.transforms import spatial_smooth, temperature_scale
+
+    pred = temperature_scale(pred, temperature=1.1)
+    pred = spatial_smooth(pred, sigma=0.3)
+    return pred
 
 
 def _blend_observations(
