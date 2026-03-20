@@ -38,6 +38,9 @@ NUM_INITIAL_SETTLEMENTS_RANGE = (4, 8)
 MIN_SETTLEMENT_SPACING = 5  # minimum distance between settlements
 INITIAL_POPULATION = 50
 INITIAL_FOOD = 100
+INITIAL_WEALTH = 0
+INITIAL_DEFENSE = 10
+INITIAL_TECH_LEVEL = 1
 
 # ---------------------------------------------------------------------------
 # Simulation: Growth phase
@@ -132,3 +135,28 @@ DEFAULT_MC_RUNS = 100  # default number of Monte Carlo runs for prediction
 
 QUERIES_PER_SEED_COVERAGE = 8  # queries reserved for initial map coverage per seed
 QUERIES_ADAPTIVE_RESERVE = 10  # queries reserved for adaptive follow-up across all seeds
+
+# ---------------------------------------------------------------------------
+# Query strategy: interest scoring
+# ---------------------------------------------------------------------------
+
+INTEREST_UNCOVERED_WEIGHT = 1.0
+INTEREST_NEAR_SETTLEMENT_WEIGHT = 3.0
+INTEREST_EXPANSION_ZONE_WEIGHT = 2.0
+INTEREST_COASTAL_WEIGHT = 1.5
+INTEREST_SETTLEMENT_RADIUS = 5
+ADAPTIVE_VIEWPORT_MID_SIZE = 10
+
+# ---------------------------------------------------------------------------
+# Calibration
+# ---------------------------------------------------------------------------
+
+CALIBRATION_KL_SCALE = 8.0  # sigmoid scaling for KL -> obs weight mapping
+CALIBRATION_BIAS_THRESHOLD = 0.05  # minimum delta to flag a bias as significant
+
+# ---------------------------------------------------------------------------
+# Observation smoothing
+# ---------------------------------------------------------------------------
+
+LAPLACE_ALPHA = 0.01  # Laplace smoothing pseudocount (low = trust observations more)
+OBS_CONFIDENCE_K = 5  # confidence scaling: weight = count / (count + K)

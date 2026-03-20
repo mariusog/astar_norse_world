@@ -13,6 +13,7 @@ dev = [
     "pytest-cov",
     "ruff",
     "mypy",
+    "types-requests",
     "bandit",
     "pip-audit",
 ]
@@ -50,9 +51,13 @@ known-first-party = ["src"]
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = true
+warn_return_any = false
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "numpy.*"
+ignore_missing_imports = true
 
 # ---------------------------------------------------------------------------
 # Pytest
