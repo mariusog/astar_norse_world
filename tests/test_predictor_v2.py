@@ -218,6 +218,6 @@ def test_build_priors_from_rounds_returns_valid_priors() -> None:
 
     priors = build_priors_from_rounds("data/rounds")
     assert len(priors) > 0
-    for t_val, vec in priors.items():
+    for _t_val, vec in priors.items():
         assert len(vec) == 6
         assert abs(sum(vec) - 1.0) < 0.01
