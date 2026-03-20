@@ -101,6 +101,78 @@ Create `src/position_priors.py` (under 250 lines).
 
 ---
 
+---
+
+### T80: Clean submission script v2
+**Status**: open
+**Branch**: `feature/T80-submit-v2`
+**Target**: Reliable 80+ score on backtest, single clean script
+**Depends on**: T70, T72
+
+Create `scripts/submit_v2.py` (under 250 lines). Replaces `submit_round.py` and `resubmit_round.py`.
+
+**Key lessons from R2 (28.9) and R5 (46.5)**:
+- R2: Laplace smoothing destroyed observations → fixed
+- R5: Regime detection misclassified survive as collapse → drop regime detection entirely
+
+- [ ] Load unified priors from T70 (survive-weighted, no regime detection)
+- [ ] Plan all 50 queries using T72 query planner (zero probes, all observations)
+- [ ] Execute queries, record observations in ObservationStore
+- [ ] Blend observations with count-scaled weights (LAPLACE_ALPHA=0.01, OBS_CONFIDENCE_K=5)
+- [ ] Apply static terrain overrides (ocean, mountain)
+- [ ] Floor + renormalize
+- [ ] Submit all 5 seeds
+- [ ] CLI: `python -m scripts.submit_v2 --token <JWT> [--budget N] [--dry-run]`
+- [ ] Log per-seed: queries used, coverage %, estimated quality
+- [ ] Self-review: lint + format + tests pass
+
+**Acceptance criteria**: Backtested avg ≥80 across all 5 historical rounds. R3 (hardest) ≥55.
+
+**Result**:
+
+---
+
+### T81: Soft regime blending from observations
+**Status**: open
+**Branch**: `feature/T81-soft-regime`
+**Target**: +3-5 pts over fixed survive priors by adapting to observed data
+**Depends on**: T80
+
+Add to the submission pipeline (under 100 lines of new code).
+
+**Insight**: After observing cells, we can estimate the regime from the data — but softly, not binary.
+
+- [ ] After all observations collected: count how many observed settlement cells still show as settlement
+- [ ] Compute `survive_confidence = settlement_survival_rate`
+- [ ] Soft-blend: `pred = confidence * survive_pred + (1-confidence) * collapse_pred`
+- [ ] This is done AFTER observations, not before — so observations are used for both blending AND regime estimation
+- [ ] Only apply soft blend to unobserved cells (observed cells already have direct data)
+- [ ] Backtest: should help on R3/R4 without hurting R1/R2/R5
+
+**Acceptance criteria**: Avg score across 5 rounds improves by ≥2 pts over fixed survive priors + observations.
+
+**Result**:
+
+---
+
+### T82: Per-terrain observation weighting
+**Status**: open
+**Branch**: `feature/T82-terrain-obs-weight`
+**Target**: Smarter observation blending per terrain type
+**Depends on**: T71, T72
+
+- [ ] Different terrain types have different prior confidence. Settlement cells (high entropy, ~40% settlement) need more observation weight than forest cells (low entropy, ~70% forest).
+- [ ] Compute per-terrain-type observation weight: `w = base_weight * terrain_entropy / max_entropy`
+- [ ] Cells with high prior entropy (settlements, ports) get more observation weight
+- [ ] Cells with low prior entropy (forest, plains far from settlements) get less observation weight
+- [ ] Backtest improvement
+
+**Acceptance criteria**: +1 pt over uniform observation weighting.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.

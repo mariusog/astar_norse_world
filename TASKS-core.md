@@ -150,6 +150,74 @@ Create `src/features.py` (under 200 lines).
 
 ---
 
+---
+
+### T70: Unified survive-weighted prior builder
+**Status**: open
+**Branch**: `core/T70-unified-priors`
+**Target**: Single best-performing prior set from all 5 historical rounds
+
+Create `src/unified_priors.py` (under 200 lines).
+
+**Key insight from R5 analysis**: "Always survive" priors score 74.9 avg across all rounds. Regime detection is unreliable (67% misclassification rate on survive rounds). The best strategy is a single prior set weighted toward survive outcomes.
+
+- [ ] `build_unified_priors(data_dir="data/rounds") -> dict[int, np.ndarray]` — aggregate GT across all rounds/seeds per terrain type
+- [ ] Weight survive rounds (R1, R2, R5) at 3x, collapse rounds (R3, R4) at 1x — reflects that 3/5 rounds are survive
+- [ ] Also build distance-conditioned priors: `build_distance_priors(data_dir) -> dict[tuple[int,int], np.ndarray]` — P(class | terrain, distance_to_settlement) with same weighting
+- [ ] `predict_from_priors(grid, priors, dist_priors=None) -> np.ndarray` — apply terrain priors + optional distance refinement + static overrides + floor
+- [ ] `save_priors()` / `load_priors()` for persistence
+- [ ] Self-review: lint + format + tests pass
+
+**Acceptance criteria**: Backtest avg ≥75 across all 5 rounds with priors only (no observations).
+
+**Result**:
+
+---
+
+### T71: Dynamic cell classifier
+**Status**: open
+**Branch**: `core/T71-dynamic-cells`
+**Target**: Boolean mask identifying which cells need observations
+
+Create logic in `src/features.py` or a new module (under 150 lines).
+
+- [ ] `classify_cells(grid) -> np.ndarray` — returns H×W boolean mask. True = dynamic (needs observations), False = static (prior is sufficient)
+- [ ] Static cells: ocean, mountain (always certain from priors)
+- [ ] Dynamic cells: settlement, port, and any cell within distance 5 of a settlement/port
+- [ ] Also mark forest cells near settlements as dynamic (they can become settlements)
+- [ ] Count dynamic cells per seed and log it
+- [ ] Type annotations, lint clean, tests
+
+**Acceptance criteria**: Dynamic mask covers ~30-40% of map (500-650 cells). All cells with GT entropy > 0.3 are marked dynamic.
+
+**Result**:
+
+---
+
+### T72: Observation-focused query planner
+**Status**: open
+**Branch**: `core/T72-obs-query-planner`
+**Target**: Maximize observations per dynamic cell using all 50 queries
+**Depends on**: T71
+
+Create `src/query_planner_v2.py` (under 200 lines).
+
+- [ ] `plan_queries(grid, dynamic_mask, budget=50, num_seeds=5) -> list[list[Viewport]]` — returns per-seed viewport lists
+- [ ] Zero probes — all queries are 15×15 observation viewports
+- [ ] Place viewports to maximize overlap on dynamic cells:
+  - Find settlement clusters using connected components or distance field
+  - Center viewports on clusters, with 5-cell offsets for overlap
+  - Each dynamic cell should be observed 3-5 times ideally
+- [ ] Budget split: 10 queries per seed (50 / 5)
+- [ ] Validate all viewports within bounds, dimensions 5-15
+- [ ] Self-review: lint + format + tests
+
+**Acceptance criteria**: On a 40×40 grid with ~40 settlements, dynamic cells get avg ≥3 observations. Static cells get ≤1.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.

@@ -173,6 +173,51 @@ Create `scripts/post_round.py` (under 200 lines).
 
 ---
 
+### T90: Backtest framework
+**Status**: open
+**Branch**: `qa/T90-backtest`
+**Target**: Simulate full submission pipeline against all 5 rounds before every real submission
+
+Create `scripts/backtest.py` (under 250 lines).
+
+- [ ] For each of the 5 historical rounds:
+  - Load initial grid + GT
+  - Build priors (excluding target round for LOO, or include all for full test)
+  - Simulate query execution: sample N observations from GT per dynamic cell
+  - Blend observations into priors
+  - Score prediction against GT
+- [ ] Support modes: `--loo` (leave-one-out, realistic), `--full` (all data, optimistic)
+- [ ] Report per-round and average scores in table format
+- [ ] Include timing info (how long pipeline takes)
+- [ ] Output: `docs/backtest_results.md` (Tier 1, under 40 lines)
+- [ ] Self-review: lint + format
+
+**Acceptance criteria**: Produces reliable score estimates matching actual server scores within ±5 pts.
+
+**Result**:
+
+---
+
+### T91: Capture and rebuild after each round
+**Status**: open
+**Branch**: `qa/T91-post-round`
+**Target**: One-command post-round workflow
+
+Create `scripts/post_round.py` (under 150 lines).
+
+- [ ] CLI: `python -m scripts.post_round --token <JWT>`
+- [ ] Step 1: Capture new completed rounds (GT + initial states) into `data/rounds/`
+- [ ] Step 2: Rebuild unified priors from all rounds
+- [ ] Step 3: Run backtest on all rounds
+- [ ] Step 4: Git add + commit new round data
+- [ ] Step 5: Print summary: new rounds captured, backtest scores, ready for next round
+
+**Acceptance criteria**: Running after R5 captures data, rebuilds priors, reports backtest scores.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.
