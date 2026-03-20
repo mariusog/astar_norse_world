@@ -17,14 +17,13 @@ Each task has: ID, status, agent, title, details, and optional dependencies.
 
 | ID | Agent | Title | Details | Depends on |
 |----|-------|-------|---------|------------|
-| T70 | core-agent | Unified survive-weighted prior builder | Build single prior set from all 5 rounds, weighted toward survive regime (3/5 rounds); drop regime detection; output to `data/priors.npy` | - |
-| T71 | core-agent | Dynamic cell classifier | Classify each cell as static (ocean/mountain, needs 0 queries) or dynamic (near settlements, needs observations); output boolean mask per seed | - |
-| T72 | core-agent | Observation-focused query planner | All 50 queries go to observations, zero probes; place overlapping viewports on dynamic cells to maximize obs/cell; target 4-5 obs per dynamic cell | T71 |
-| T80 | feature-agent | Clean submission script v2 | Single script: load priors → plan queries on dynamic cells → observe → blend → submit; no regime detection; use survive priors always; target 80+ on backtest | T70, T72 |
-| T81 | feature-agent | Soft regime blending from observations | After observing cells, estimate regime confidence from observed settlement survival rate; soft-blend survive/collapse priors based on confidence; safer than binary detection | T70, T80 |
-| T82 | feature-agent | Per-terrain-type observation weighting | Dynamic cells near settlements need more observations than cells far away; allocate viewport overlap proportional to expected entropy from priors | T71, T72 |
-| T90 | qa-agent | Backtest framework | Simulate full submission pipeline against all 5 rounds using GT-sampled observations; report per-round and avg scores; run before every real submission | T80 |
-| T91 | qa-agent | Capture and rebuild after each round | One-command: capture new round GT → rebuild priors → backtest → report | T70 |
+| T100 | core-agent | Integrate distance priors into submit_v2 | submit_v2.py uses flat priors; add distance_priors for +3-7 pts on survive rounds (R1: +3.7, R5: +7.5) | - |
+| T101 | core-agent | Fix submit_v2 observation blending to use ObservationStore correctly | Current submit_v2 feeds raw server codes into ObservationStore; verify the full pipeline from query→store→blend produces correct distributions | T100 |
+| T102 | core-agent | End-to-end pipeline test against historical data | Run submit_v2 in dry-run mode against each historical round, compare predicted score to actual; catch bugs like the uniform-priors disaster before submission | T101 |
+| T110 | feature-agent | Soft regime blending from post-observation data | After all 50 observations: count how many settlement cells still show settlement; compute survive_confidence; soft-blend priors for UNOBSERVED cells only | T101 |
+| T111 | feature-agent | Adaptive observation density | Settlement cells need more overlap (high entropy ~0.7); plains far from settlements need less (low entropy ~0.2); weight viewport placement by prior entropy | T100 |
+| T120 | qa-agent | Pre-submission validation | Before every submit, run a self-check: are priors non-uniform? Do predictions sum to 1? Is max_prob > 0.5 for static cells? Auto-abort if sanity checks fail | - |
+| T121 | qa-agent | Automated backtest in CI | Add backtest to CI pipeline; fail if avg score drops below 70 on historical rounds | T102 |
 
 ## In Progress
 
@@ -57,3 +56,9 @@ Each task has: ID, status, agent, title, details, and optional dependencies.
 | T51 | feature-agent | Prior-based predictor | Completed -- src/predictor_v2.py with terrain priors + distance adjustment, R2 backtest=86.6 |
 | T53 | feature-agent | Position-aware priors | Completed -- src/position_priors.py with settlement distance model, +1.5 pts over flat |
 | T60 | qa-agent | Round-over-round analysis | Completed -- scripts/analyze_rounds.py + docs/round_analysis.md |
+| T70 | core-agent | Unified survive-weighted prior builder | Completed -- src/unified_priors.py, survive 3x weighting, distance priors, 16 tests |
+| T71 | core-agent | Dynamic cell classifier | Completed -- src/cell_classifier.py, 35-54% dynamic fraction, 14 tests |
+| T72 | core-agent | Observation-focused query planner | Completed -- src/query_planner_v2.py, cluster-based viewport placement, 11 tests |
+| T80 | feature-agent | Clean submission script v2 | Completed -- scripts/submit_v2.py, no regime detection, survive priors + observations |
+| T90 | qa-agent | Backtest framework | Completed -- scripts/backtest.py, LOO/full modes, configurable obs density |
+| T91 | qa-agent | Post-round automation | Completed -- scripts/post_round.py, capture + backtest + commit |
