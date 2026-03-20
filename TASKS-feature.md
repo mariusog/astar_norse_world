@@ -4,6 +4,30 @@
 
 ## Active Tasks
 
+### T80: Clean submission script v2
+**Status**: done
+**Branch**: `feature/T80-submit-v2`
+**Target**: Replace broken submit_round.py with clean pipeline using survive priors
+
+- [x] Create `scripts/submit_v2.py` under 250 lines
+- [x] Always use survive priors (no regime detection)
+- [x] Plan all 50 queries as observations (zero probes), 10 per seed as overlapping 15x15 viewports
+- [x] Execute queries, feed into ObservationStore
+- [x] Blend observations with count-scaled weights: w_obs = 0.8 * count / (count + 5)
+- [x] Apply static overrides (ocean/mountain) and probability floor
+- [x] Cast numpy ints to int() before API calls
+- [x] time.sleep(0.2) between queries
+- [x] CLI flags: --token, --round-id, --budget, --dry-run
+- [x] Lint and format clean
+- [x] All existing tests pass
+
+**Result**:
+- **What changed**: Created `scripts/submit_v2.py` (250 lines) implementing the full submission pipeline with survive-only priors, settlement-focused overlapping viewports, count-scaled observation blending, static terrain overrides, and probability flooring.
+- **Metrics**: Priors shape (7,6), all rows normalized. Smoke test confirms ocean cells >95% empty, mountain cells >95% mountain, settlement detection works correctly.
+- **Tests**: All 287 existing tests pass. Smoke tests verify priors, predictions, settlement finding, and normalization.
+
+---
+
 ### T50: Overlap-focused query strategy
 **Status**: open
 **Branch**: `feature/T50-overlap-queries`
