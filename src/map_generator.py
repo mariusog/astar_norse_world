@@ -109,7 +109,8 @@ def _place_mountains(grid: np.ndarray, width: int, height: int, rng: np.random.G
         if dx == 0 and dy == 0:
             dx = 1
 
-        length = int(rng.integers(MOUNTAIN_CHAIN_LENGTH_RANGE[0], MOUNTAIN_CHAIN_LENGTH_RANGE[1] + 1))
+        low, high = MOUNTAIN_CHAIN_LENGTH_RANGE
+        length = int(rng.integers(low, high + 1))
 
         for _ in range(length):
             if (
