@@ -37,7 +37,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]" 2>/dev/null || pip install -r requirements.txt 2>/dev/null || pip install -r requirements-dev.txt 2>/dev/null || true
-          pip install ruff mypy bandit pip-audit
+          pip install ruff mypy types-requests bandit pip-audit
 
       # --- Quality gates (mirror your Tooling table) ---
       - name: Lint
