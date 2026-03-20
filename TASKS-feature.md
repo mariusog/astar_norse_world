@@ -4,7 +4,102 @@
 
 ## Active Tasks
 
-(none -- all tasks completed)
+### T50: Overlap-focused query strategy
+**Status**: open
+**Branch**: `feature/T50-overlap-queries`
+**Target**: 3-5 observations per high-entropy cell instead of 1 observation per cell
+**Depends on**: T42
+
+Replace the coverage-tiling strategy with one optimized for probability estimation.
+
+- [ ] Create `src/query_strategy_v2.py` (under 250 lines) — keep old strategy as fallback
+- [ ] `OverlapQueryPlanner` class, constructor takes: grid, settlement positions, budget, num_seeds
+- [ ] Core idea: classify cells by expected entropy. Static cells (ocean, mountain, deep forest) need 0 queries. Dynamic cells near settlements need many.
+- [ ] `plan_queries(seed_index, grid) -> list[Viewport]` — plan all queries for one seed upfront
+- [ ] Step 1: Identify "dynamic zone" — cells within `INTEREST_SETTLEMENT_RADIUS` of any settlement + all settlement/port cells
+- [ ] Step 2: Place viewports to maximize overlap within the dynamic zone. Use smallest viewport (5×5 or 7×7) centered on settlement clusters
+- [ ] Step 3: Budget allocation — give more queries to seeds with more settlements / higher expected entropy
+- [ ] Each dynamic cell should be observed 3-5 times; static cells 0 times
+- [ ] Validate all viewports within bounds and dimensions 5-15
+- [ ] Self-review: lint + format check
+- [ ] Tests pass
+
+**Acceptance criteria**: Backtested against R1+R2 ground truth, overlap strategy scores higher than tiling strategy. Dynamic cells have ≥3 observations on average.
+
+**Result**:
+
+---
+
+### T51: Prior-based predictor
+**Status**: open
+**Branch**: `feature/T51-prior-predictor`
+**Target**: Baseline score ≥85 using only historical priors, no MC simulation
+**Depends on**: T41, T42
+
+Update `src/predictor.py` (or create `src/predictor_v2.py` if cleaner).
+
+- [ ] `PriorPredictor` class — uses pre-built terrain priors + settlement proximity features instead of MC simulation
+- [ ] Constructor takes: grid, settlements, priors (from T41), features (from T42), observation_store
+- [ ] `predict(seed_index) -> np.ndarray` — build H×W×6 tensor:
+  - Base: terrain priors from historical data
+  - Refinement 1: adjust based on settlement distance (cells closer to settlements → higher settlement probability)
+  - Refinement 2: blend in observations with count-scaled weights (existing fix)
+  - Refinement 3: static terrain override (ocean=1.0 empty, mountain=1.0 mountain)
+  - Apply probability floor + renormalize
+- [ ] No MC simulation needed — much faster (ms instead of seconds)
+- [ ] Configurable via constants: distance decay factor, observation confidence K
+- [ ] Type annotations, lint clean
+- [ ] Tests: verify output shape, normalization, static terrain handling
+
+**Acceptance criteria**: Scores ≥85 on R2 backtest with priors-only. Scores ≥88 with observations from overlap strategy.
+
+**Result**:
+
+---
+
+### T52: Improved submission pipeline
+**Status**: open
+**Branch**: `feature/T52-pipeline-v2`
+**Target**: Complete round-submission workflow with new strategy
+**Depends on**: T50, T51
+
+Update `src/pipeline.py` to use new components.
+
+- [ ] Load historical priors from `data/priors.npy` at startup
+- [ ] Use `OverlapQueryPlanner` from T50 instead of coverage tiling
+- [ ] Use `PriorPredictor` from T51 instead of MC-based predictor
+- [ ] Self-score each seed before submitting (using `score_prediction` with priors as pseudo-GT)
+- [ ] Log per-seed: score estimate, query count, coverage %, submission status
+- [ ] Respect 50-query budget with smart per-seed allocation
+- [ ] CLI still works: `python -m src.pipeline --token <JWT>`
+- [ ] Tests pass
+
+**Acceptance criteria**: Full pipeline runs in <30 seconds (no MC needed). Backtested score ≥85 on R2.
+
+**Result**:
+
+---
+
+### T53: Per-cell position-aware priors
+**Status**: open
+**Branch**: `feature/T53-position-priors`
+**Target**: Learn position-relative patterns around settlements for +2-5 score improvement
+**Depends on**: T40, T41
+
+Create `src/position_priors.py` (under 250 lines).
+
+- [ ] For each historical round: for each settlement in the initial state, collect a "neighborhood profile" — GT distributions at distances 1, 2, 3, 4, 5 from that settlement
+- [ ] Aggregate across all rounds to build a "settlement influence model": probability of each class as a function of distance from nearest settlement
+- [ ] `predict_from_position(grid, settlements, priors) -> np.ndarray` — start with terrain priors, then for cells near settlements, blend in the distance-based model
+- [ ] Compare with flat terrain priors: does position-awareness improve score?
+- [ ] Type annotations, lint clean
+- [ ] Tests: verify distance model produces valid distributions
+
+**Acceptance criteria**: Position-aware priors score at least 2 points higher than flat terrain priors on R2 backtest.
+
+**Result**:
+
+---
 
 ## Escalations
 

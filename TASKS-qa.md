@@ -105,6 +105,74 @@ Create `src/scoring.py` (under 150 lines).
 
 ---
 
+### T60: Round-over-round analysis
+**Status**: open
+**Branch**: `qa/T60-round-analysis`
+**Target**: Understand how terrain priors vary across rounds
+**Depends on**: T40
+
+Create `scripts/analyze_rounds.py` (under 250 lines) and output `docs/round_analysis.md`.
+
+- [ ] Load all captured round data from `data/rounds/`
+- [ ] For each terrain type: compute mean GT probability vector per round
+- [ ] Measure prior stability: standard deviation across rounds for each terrain type
+- [ ] Identify most/least stable terrain types
+- [ ] Compute: if we used round N-1's priors to predict round N, what would score be? (rolling backtest)
+- [ ] Output summary to `docs/round_analysis.md` (under 40 lines, Tier 1 format)
+- [ ] Include: terrain type, mean prior, std across rounds, rolling backtest scores
+- [ ] Self-review: lint + format check
+
+**Acceptance criteria**: Report generated, rolling backtest scores reported for all available round pairs.
+
+**Result**:
+
+---
+
+### T61: Query strategy backtesting
+**Status**: open
+**Branch**: `qa/T61-query-backtest`
+**Target**: Quantify which query strategy produces highest scores
+**Depends on**: T40, T50
+
+Create `scripts/backtest_queries.py` (under 250 lines).
+
+- [ ] For each completed round with ground truth:
+  - Strategy A: full tiling (current, 8 queries/seed, 1 obs/cell) — simulate by sampling 1 GT outcome per cell
+  - Strategy B: overlap on settlements (T50 strategy) — simulate by sampling N GT outcomes for dynamic cells
+  - Strategy C: terrain priors only (0 queries) — pure prior baseline
+- [ ] For each strategy: blend observations with priors, score against GT
+- [ ] Report: strategy, round, avg score, per-seed scores
+- [ ] Output to `docs/query_backtest.md`
+- [ ] Tests: verify backtest produces valid scores
+
+**Acceptance criteria**: Clear winner identified. Score difference between strategies quantified.
+
+**Result**:
+
+---
+
+### T62: Automated round capture hook
+**Status**: open
+**Branch**: `qa/T62-capture-hook`
+**Target**: One-command post-round workflow
+**Depends on**: T40, T41
+
+Create `scripts/post_round.py` (under 200 lines).
+
+- [ ] CLI: `python scripts/post_round.py --token <JWT>`
+- [ ] Step 1: Run round collector (T40) to capture any new completed rounds
+- [ ] Step 2: Rebuild terrain priors (T41) with all available data
+- [ ] Step 3: Run round analysis (T60) to update the report
+- [ ] Step 4: Backtest current strategy against latest round
+- [ ] Step 5: Print summary: rounds captured, prior quality, expected score range
+- [ ] Self-review: lint + format check
+
+**Acceptance criteria**: Running after each round automatically updates data, priors, and reports.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.
