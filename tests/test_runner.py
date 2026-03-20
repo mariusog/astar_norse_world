@@ -6,6 +6,7 @@ import numpy as np
 
 from src.constants import NUM_PREDICTION_CLASSES, PROBABILITY_FLOOR
 from src.runner import (
+    grid_to_ascii,
     run_monte_carlo_from_state,
     run_single_from_state,
 )
@@ -84,3 +85,39 @@ class TestRunMonteCarloFromState:
         grid_orig = grid.copy()
         run_monte_carlo_from_state(grid, settlements, num_runs=3)
         np.testing.assert_array_equal(grid, grid_orig)
+
+
+# ---------------------------------------------------------------------------
+# Tests: grid_to_ascii
+# ---------------------------------------------------------------------------
+
+
+class TestGridToAscii:
+    def test_correct_symbols(self) -> None:
+        grid = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.int8)
+        result = grid_to_ascii(grid)
+        lines = result.split("\n")
+        assert lines[0] == ".SP"
+        assert lines[1] == "RFM"
+
+    def test_shape_matches_grid_dimensions(self) -> None:
+        grid = np.array([[0, 1], [2, 3], [4, 5]], dtype=np.int8)
+        result = grid_to_ascii(grid)
+        lines = result.split("\n")
+        assert len(lines) == 3  # 3 rows
+        assert all(len(line) == 2 for line in lines)  # 2 cols each
+
+    def test_all_empty_grid(self) -> None:
+        grid = np.zeros((2, 3), dtype=np.int8)
+        result = grid_to_ascii(grid)
+        assert result == "...\n..."
+
+    def test_unknown_value_renders_question_mark(self) -> None:
+        grid = np.array([[99]], dtype=np.int8)
+        result = grid_to_ascii(grid)
+        assert result == "?"
+
+    def test_single_cell_grid(self) -> None:
+        grid = np.array([[5]], dtype=np.int8)
+        result = grid_to_ascii(grid)
+        assert result == "M"

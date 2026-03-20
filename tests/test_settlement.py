@@ -55,6 +55,41 @@ class TestSettlementCombat:
         assert s.should_collapse() is False
 
 
+class TestGrow:
+    def test_grows_when_food_exceeds_threshold(self) -> None:
+        # food > population * GROWTH_FOOD_THRESHOLD_MULTIPLIER (2)
+        s = Settlement(x=0, y=0, owner_id=0, population=50, food=200)
+        initial_pop = s.population
+        initial_defense = s.defense
+        s.grow()
+        # growth = max(1, int(50 * 0.1)) = 5
+        assert s.population == initial_pop + 5
+        assert s.defense == initial_defense + 1
+
+    def test_no_growth_when_food_insufficient(self) -> None:
+        # food <= population * 2 -> no growth
+        s = Settlement(x=0, y=0, owner_id=0, population=50, food=50)
+        initial_pop = s.population
+        initial_defense = s.defense
+        s.grow()
+        assert s.population == initial_pop
+        assert s.defense == initial_defense
+
+    def test_no_growth_at_exact_threshold(self) -> None:
+        # food == population * 2 -> not greater, so no growth
+        s = Settlement(x=0, y=0, owner_id=0, population=50, food=100)
+        initial_pop = s.population
+        s.grow()
+        assert s.population == initial_pop
+
+    def test_minimum_growth_is_one(self) -> None:
+        # population=5, growth = max(1, int(5 * 0.1)) = max(1, 0) = 1
+        s = Settlement(x=0, y=0, owner_id=0, population=5, food=100)
+        initial_pop = s.population
+        s.grow()
+        assert s.population == initial_pop + 1
+
+
 class TestResetYearly:
     def test_resets_raid_damage(self) -> None:
         s = Settlement(x=0, y=0, owner_id=0)

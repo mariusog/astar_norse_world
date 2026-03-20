@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from src.prediction_validator import validate_predictions
+from src.prediction_validator import backtest_check, validate_predictions
 from src.terrain import InternalTerrain, Terrain
 
 # ---------------------------------------------------------------------------
@@ -192,3 +192,25 @@ class TestNonTrivialCheck:
         preds = [pred.copy() for _ in range(5)]
         errors = validate_predictions(preds, [grid] * 5)
         assert any("identical" in e.lower() for e in errors)
+
+
+# ---------------------------------------------------------------------------
+# Tests: backtest_check
+# ---------------------------------------------------------------------------
+
+
+class TestBacktestCheck:
+    def test_missing_data_dir_returns_empty(self) -> None:
+        grid = _make_grid()
+        preds = _make_predictions(grid)
+        grids = [grid] * 5
+        errors = backtest_check(preds, grids, data_dir="/nonexistent/path/to/rounds")
+        assert errors == []
+
+    def test_empty_data_dir_returns_empty(self, tmp_path) -> None:
+        # Directory exists but has no round subdirectories
+        grid = _make_grid()
+        preds = _make_predictions(grid)
+        grids = [grid] * 5
+        errors = backtest_check(preds, grids, data_dir=str(tmp_path))
+        assert errors == []
