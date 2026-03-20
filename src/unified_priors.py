@@ -97,7 +97,7 @@ def save_priors(
     data: dict[str, np.ndarray] = {"priors": priors}
     if dist_priors is not None:
         data["dist_priors"] = dist_priors
-    np.savez(path, **data)
+    np.savez(path, **data)  # type: ignore[arg-type]  # type: ignore[arg-type]
     logger.info("Saved priors to %s", path)
 
 
@@ -131,12 +131,12 @@ def _load_round_metadata(data_dir: str | Path) -> dict[int, Path]:
     return result
 
 
-def _load_seed(rd: Path, si: int) -> tuple[np.ndarray | None, np.ndarray | None]:
-    """Load initial grid and GT for one seed."""
+def _load_seed(rd: Path, si: int) -> tuple[np.ndarray, np.ndarray] | None:
+    """Load initial grid and GT for one seed. Returns None if missing."""
     sd = rd / f"seed_{si}"
     ig_p, gt_p = sd / "initial_grid.npy", sd / "ground_truth.npy"
     if not ig_p.exists() or not gt_p.exists():
-        return None, None
+        return None
     return np.load(ig_p), np.load(gt_p)
 
 
@@ -146,15 +146,16 @@ def _load_seed(rd: Path, si: int) -> tuple[np.ndarray | None, np.ndarray | None]
 def _accum_round(rd: Path, weight: float, accum: np.ndarray, total: np.ndarray) -> None:
     """Add one round's data to terrain-type accumulators."""
     for si in range(NUM_SEEDS):
-        ig, gt = _load_seed(rd, si)
-        if ig is None:
+        pair = _load_seed(rd, si)
+        if pair is None:
             continue
+        ig, gt = pair
         for t in range(NUM_INTERNAL_TYPES):
             mask = ig == t
             n = int(mask.sum())
             if n == 0:
                 continue
-            accum[t] += weight * gt[mask].sum(axis=0)
+            accum[t] += weight * gt[mask].sum(axis=0)  # type: ignore[index]
             total[t] += weight * n
 
 
@@ -162,9 +163,10 @@ def _accum_round_dist(rd: Path, weight: float, accum: np.ndarray, total: np.ndar
     """Add one round's data to distance-aware accumulators."""
     nb = len(DIST_BIN_EDGES) - 1
     for si in range(NUM_SEEDS):
-        ig, gt = _load_seed(rd, si)
-        if ig is None:
+        pair = _load_seed(rd, si)
+        if pair is None:
             continue
+        ig, gt = pair
         dist = compute_settlement_distance(ig)
         for t in range(NUM_INTERNAL_TYPES):
             for b in range(nb):
@@ -173,7 +175,7 @@ def _accum_round_dist(rd: Path, weight: float, accum: np.ndarray, total: np.ndar
                 n = int(mask.sum())
                 if n == 0:
                     continue
-                accum[t, b] += weight * gt[mask].sum(axis=0)
+                accum[t, b] += weight * gt[mask].sum(axis=0)  # type: ignore[index]
                 total[t, b] += weight * n
 
 
