@@ -21,11 +21,8 @@ from src.constants import (
 )
 from src.observation import ObservationStore
 from src.prediction_validator import backtest_check, validate_predictions
-from src.regime import build_regime_priors
-from src.soft_regime import estimate_regime_confidence, soft_blend_predictions
 from src.state_loader import load_round
 from src.terrain import InternalTerrain
-from src.unified_priors import build_distance_priors, build_unified_priors
 
 logging.basicConfig(
     level=logging.INFO,
@@ -40,7 +37,7 @@ _DATA_DIR = "data/rounds"
 
 
 def main() -> None:
-    """Parse CLI args and run the full pipeline."""
+    """Two-phase pipeline: probe regime, then observe with adapted priors."""
     args = _parse_args()
     client = AstarClient(args.token)
     round_id, rd = _resolve_round(client, args.round_id)
@@ -49,21 +46,26 @@ def main() -> None:
     w = rd.get("map_width", DEFAULT_MAP_WIDTH)
     n_seeds = rd.get("seeds_count", NUM_SEEDS)
     logger.info("Round %s: %dx%d, %d seeds", round_id, w, h, n_seeds)
-    priors = build_unified_priors(_DATA_DIR)
-    dist_priors = build_distance_priors(_DATA_DIR)
-    regime_priors = build_regime_priors(_DATA_DIR)
-    viewports = _plan_all_queries(states, w, h, args.budget)
+
+    # Phase 1: Probe — 1 query per seed on densest settlement cluster
     obs = ObservationStore(h, w, n_seeds)
+    probe_vps = _plan_probe_queries(states, w, h)
+    probe_budget = len(probe_vps)
     if not args.dry_run:
-        _execute_queries(client, round_id, viewports, obs)
-    predictions = _build_all_predictions(states, priors, dist_priors, obs)
-    predictions = _apply_soft_regime(
-        predictions,
-        states,
-        obs,
-        regime_priors,
-        n_seeds,
-    )
+        _execute_queries(client, round_id, probe_vps, obs)
+    regime = _detect_regime_from_probes(states, obs, n_seeds)
+    priors = _build_adaptive_priors(regime)
+    logger.info("Phase 1 done: %d probes, regime=%s", probe_budget, regime)
+
+    # Phase 2: Observe — remaining budget on settlement clusters
+    obs_budget = args.budget - probe_budget
+    obs_vps = _plan_all_queries(states, w, h, obs_budget)
+    if not args.dry_run:
+        _execute_queries(client, round_id, obs_vps, obs)
+    logger.info("Phase 2 done: %d observation queries", len(obs_vps))
+
+    # Build predictions, validate, submit
+    predictions = _build_all_predictions(states, priors, obs)
     grids = [s[0] for s in states]
     errors = validate_predictions(predictions, grids)
     errors.extend(backtest_check(predictions, grids, _DATA_DIR))
@@ -99,6 +101,90 @@ def _resolve_round(client: AstarClient, rid: str | None) -> tuple[str, dict[str,
         logger.error("No active round found")
         sys.exit(1)
     return active["id"], client.get_round(active["id"])
+
+
+_REGIME_AGGRESSIVE_THRESHOLD = 0.35
+_REGIME_COLLAPSE_THRESHOLD = 0.05
+
+
+def _plan_probe_queries(
+    states: list[tuple[np.ndarray, list]],
+    w: int,
+    h: int,
+) -> list[dict[str, Any]]:
+    """Plan 1 probe query per seed: 15x15 on densest settlement cluster."""
+    vps: list[dict[str, Any]] = []
+    for si in range(len(states)):
+        grid = states[si][0]
+        center = _find_densest_settlement(grid)
+        if center is None:
+            continue
+        cx, cy = center
+        vx = max(0, min(cx - _VP_SIZE // 2, w - _VP_SIZE))
+        vy = max(0, min(cy - _VP_SIZE // 2, h - _VP_SIZE))
+        vps.append({"seed_index": si, "x": vx, "y": vy, "w": _VP_SIZE, "h": _VP_SIZE})
+    return vps
+
+
+def _find_densest_settlement(grid: np.ndarray) -> tuple[int, int] | None:
+    """Find the settlement cell with most nearby settlement neighbors."""
+    ys, xs = np.where((grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT))
+    if len(ys) == 0:
+        return None
+    best_idx, best_n = 0, 0
+    for j in range(len(ys)):
+        n = int(((np.abs(ys - ys[j]) <= _VP_SIZE) & (np.abs(xs - xs[j]) <= _VP_SIZE)).sum())
+        if n > best_n:
+            best_n = n
+            best_idx = j
+    return int(xs[best_idx]), int(ys[best_idx])
+
+
+def _detect_regime_from_probes(
+    states: list[tuple[np.ndarray, list]],
+    obs: ObservationStore,
+    n_seeds: int,
+) -> str:
+    """Count observed settlement survival across all probe viewports."""
+    total_checked, total_survived = 0, 0
+    for si in range(n_seeds):
+        grid = states[si][0]
+        obs_probs = obs.get_observed_probs(si)
+        coverage = obs.get_coverage_mask(si)
+        settle_mask = (grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)
+        observed_settles = settle_mask & coverage
+        if not observed_settles.any():
+            continue
+        # Check if observed settlement cells have high settlement probability
+        ys, xs = np.where(observed_settles)
+        for y, x in zip(ys, xs, strict=True):
+            total_checked += 1
+            probs = obs_probs[y, x]
+            if not np.isnan(probs[0]) and (probs[1] + probs[2]) > 0.3:
+                total_survived += 1
+
+    rate = total_survived / max(total_checked, 1)
+    if rate < _REGIME_COLLAPSE_THRESHOLD:
+        regime = "collapse"
+    elif rate > _REGIME_AGGRESSIVE_THRESHOLD:
+        regime = "aggressive"
+    else:
+        regime = "survive"
+    logger.info(
+        "Regime: %s (rate=%.2f, %d/%d settlements survived in probes)",
+        regime,
+        rate,
+        total_survived,
+        total_checked,
+    )
+    return regime
+
+
+def _build_adaptive_priors(regime: str) -> np.ndarray:
+    """Build priors using only rounds matching the detected regime."""
+    from src.adaptive_priors import build_adaptive_priors
+
+    return build_adaptive_priors(regime, _DATA_DIR)
 
 
 def _find_settlements(grid: np.ndarray) -> list[tuple[int, int]]:
@@ -214,63 +300,28 @@ def _execute_queries(
         time.sleep(_QUERY_DELAY)
 
 
-def _apply_soft_regime(
-    predictions: list[np.ndarray],
-    states: list[tuple[np.ndarray, list]],
-    obs: ObservationStore,
-    regime_priors: dict[str, dict[int, np.ndarray]],
-    n_seeds: int,
-) -> list[np.ndarray]:
-    """Soft-blend survive/collapse priors for unobserved cells."""
-    grids = [s[0] for s in states]
-    obs_stores = [obs] * n_seeds  # same store, indexed by seed
-    confidence = estimate_regime_confidence(grids, obs_stores)
-
-    collapse_priors = regime_priors.get("collapse", {})
-    result = []
-    for si in range(len(predictions)):
-        grid = grids[si]
-        coverage = obs.get_coverage_mask(si)
-        # Build collapse prediction for unobserved cells
-        h, w = grid.shape
-        collapse_pred = np.full((h, w, 6), 1.0 / 6)
-        for t_val, prior in collapse_priors.items():
-            mask = grid == t_val
-            if mask.any():
-                collapse_pred[mask] = prior
-        collapse_pred = _floor_and_normalize(collapse_pred)
-        blended = soft_blend_predictions(
-            predictions[si],
-            collapse_pred,
-            confidence,
-            coverage,
-        )
-        result.append(_floor_and_normalize(blended))
-
-    return result
-
-
 def _build_all_predictions(
     states: list[tuple[np.ndarray, list]],
     priors: np.ndarray,
-    dist_priors: np.ndarray,
     obs: ObservationStore,
 ) -> list[np.ndarray]:
     """Build predictions for all seeds."""
-    return [_build_prediction(s[0], priors, dist_priors, obs, i) for i, s in enumerate(states)]
+    return [_build_prediction(s[0], priors, obs, i) for i, s in enumerate(states)]
 
 
 def _build_prediction(
     grid: np.ndarray,
     priors: np.ndarray,
-    dist_priors: np.ndarray,
     obs: ObservationStore,
     seed_index: int,
 ) -> np.ndarray:
-    """Build H x W x 6: dist priors -> blend obs -> static -> floor."""
-    from src.unified_priors import predict_from_priors
-
-    tensor = predict_from_priors(grid, priors, dist_priors)
+    """Build H x W x 6: adaptive priors -> blend obs -> static -> floor."""
+    h, w = grid.shape
+    tensor = np.full((h, w, 6), 1.0 / 6)
+    gi = np.clip(grid.astype(np.int32), 0, priors.shape[0] - 1)
+    tensor = priors[gi].copy()
+    tensor[grid == InternalTerrain.OCEAN] = [1, 0, 0, 0, 0, 0]
+    tensor[grid == InternalTerrain.MOUNTAIN] = [0, 0, 0, 0, 0, 1]
     tensor = _blend_observations(tensor, obs, seed_index)
     return _floor_and_normalize(tensor)
 
