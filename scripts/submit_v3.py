@@ -23,7 +23,6 @@ from src.api_client import APIError, AstarClient
 from src.constants import (
     DEFAULT_MAP_HEIGHT,
     DEFAULT_MAP_WIDTH,
-    OBS_CONFIDENCE_K,
     PROBABILITY_FLOOR,
     TOTAL_QUERY_BUDGET,
 )
@@ -70,20 +69,25 @@ def main() -> None:
     obs_budget = args.budget - probe_used
     _run_observations(client, round_id, states, obs, obs_budget, w, h, args.dry_run)
 
-    predictions, grids = _build_all(states, model, obs)
+    predictions, grids = _build_all(states, model, obs, regime)
     _validate_and_submit(client, round_id, predictions, grids, args.dry_run, args.force)
 
 
 # -- Phase 1: Regime detection ------------------------------------------------
 
 
-def _build_all(states: list, model: Any, obs: ObservationStore) -> tuple[list, list]:
+def _build_all(
+    states: list,
+    model: Any,
+    obs: ObservationStore,
+    regime: str = "survive",
+) -> tuple[list, list]:
     """Build predictions and grids for all seeds."""
     predictions, grids = [], []
     for si in range(len(states)):
         grid = states[si][0]
         grids.append(grid)
-        predictions.append(_build_prediction(grid, model, obs, si))
+        predictions.append(_build_prediction(grid, model, obs, si, regime))
     return predictions, grids
 
 
@@ -287,38 +291,63 @@ def _build_prediction(
     model: Any,
     obs: ObservationStore,
     si: int,
+    regime: str = "survive",
 ) -> np.ndarray:
-    """XGBoost base → transforms → observation blend → floor."""
+    """XGBoost base → regime transforms → aggressive observation replace → floor."""
     pred = predict_grid(grid, model)
-    pred = _apply_best_transforms(pred)
-    pred = _blend_observations(pred, obs, si)
+    pred = _apply_regime_transforms(pred, grid, regime)
+    pred = _calibrate_from_observations(pred, obs, si)
     return _floor_and_normalize(pred)
 
 
-def _apply_best_transforms(pred: np.ndarray) -> np.ndarray:
-    """Apply the winning transform chain: temperature 1.1 + spatial smooth 0.3."""
-    from web.transforms import spatial_smooth, temperature_scale
+# Regime-specific transform chains (from model search results)
+_REGIME_TRANSFORMS: dict[str, list[tuple[str, dict]]] = {
+    "survive": [("temperature_scale", {"temperature": 1.1}), ("spatial_smooth", {"sigma": 0.3})],
+    "aggressive": [("temperature_scale", {"temperature": 1.2})],
+    "collapse": [("collapse_shift", {"threshold": 0.3})],
+}
 
-    pred = temperature_scale(pred, temperature=1.1)
-    pred = spatial_smooth(pred, sigma=0.3)
-    return pred
+
+def _apply_regime_transforms(pred: np.ndarray, grid: np.ndarray, regime: str) -> np.ndarray:
+    """Apply regime-specific transform chain."""
+    from web.transforms import apply_transform_chain
+
+    transforms = _REGIME_TRANSFORMS.get(regime, _REGIME_TRANSFORMS["survive"])
+    return apply_transform_chain(pred, grid, transforms)
 
 
-def _blend_observations(
+# Aggressive observation calibration: trust observations much more
+_OBS_K = 1.0  # was 5.0 — now observations dominate after just 1-2 obs
+
+
+def _calibrate_from_observations(
     tensor: np.ndarray,
     obs: ObservationStore,
     si: int,
 ) -> np.ndarray:
-    """Blend observations with count-scaled weights."""
+    """Replace model predictions with observations where available.
+
+    Key insight from research: directly using observed frequencies
+    for covered cells is worth +6-7 pts, especially on collapse rounds.
+    With K=1, a single observation gets weight 0.44 (vs 0.13 with K=5).
+    With 2 observations, weight is 0.53. This aggressively trusts the server.
+    """
     obs_probs = obs.get_observed_probs(si)
     mask = obs.get_coverage_mask(si) & ~np.isnan(obs_probs[:, :, 0])
     if not mask.any():
         return tensor
     result = tensor.copy()
     counts = obs.observation_count(si)[mask].astype(np.float64)
-    w = (_MAX_OBS_WEIGHT * counts / (counts + OBS_CONFIDENCE_K))[:, np.newaxis]
+    w = (_MAX_OBS_WEIGHT * counts / (counts + _OBS_K))[:, np.newaxis]
     result[mask] = w * obs_probs[mask] + (1.0 - w) * tensor[mask]
-    logger.info("Seed %d: blended %d cells (%.0f%%)", si, int(mask.sum()), mask.mean() * 100)
+    avg_w = float(w.mean())
+    logger.info(
+        "Seed %d: calibrated %d cells (%.0f%%), avg_weight=%.2f",
+        si,
+        int(mask.sum()),
+        mask.mean() * 100,
+        avg_w,
+    )
     return result
 
 
