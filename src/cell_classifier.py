@@ -9,14 +9,9 @@ from __future__ import annotations
 
 import numpy as np
 
+from src.constants import DYNAMIC_FOREST_RADIUS, DYNAMIC_SETTLEMENT_RADIUS
 from src.features import compute_settlement_distance
 from src.terrain import InternalTerrain
-
-# Distance threshold for marking cells as dynamic near settlements
-DYNAMIC_SETTLEMENT_RADIUS = 3
-
-# Forest cells within this distance of settlements are dynamic
-DYNAMIC_FOREST_RADIUS = 3
 
 # Target fraction of map that should be classified dynamic
 

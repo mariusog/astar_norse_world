@@ -12,7 +12,9 @@ from typing import Any
 import numpy as np
 
 from src.constants import (
+    DYNAMIC_DIST_THRESHOLD,
     LAPLACE_ALPHA,
+    NUM_INTERNAL_TYPES,
     NUM_PREDICTION_CLASSES,
     OBSERVATION_WEIGHT,
     PROBABILITY_FLOOR,
@@ -27,8 +29,6 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data" / "rounds"
 DOCS_DIR = PROJECT_ROOT / "docs"
-DYNAMIC_DIST_THRESHOLD = 3
-NUM_INTERNAL_TYPES = 7
 
 
 def discover_rounds() -> list[dict[str, Any]]:
@@ -102,8 +102,7 @@ def simulate_observations(
         if ps < 1e-12:
             continue
         safe_p = probs / ps
-        for _ in range(obs_per_cell):
-            counts[y, x, rng.choice(c, p=safe_p)] += 1
+        counts[y, x] = rng.multinomial(obs_per_cell, safe_p)
     return counts
 
 

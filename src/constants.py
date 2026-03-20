@@ -160,3 +160,26 @@ CALIBRATION_BIAS_THRESHOLD = 0.05  # minimum delta to flag a bias as significant
 
 LAPLACE_ALPHA = 0.01  # Laplace smoothing pseudocount (low = trust observations more)
 OBS_CONFIDENCE_K = 5  # confidence scaling: weight = count / (count + K)
+
+# ---------------------------------------------------------------------------
+# Terrain classification
+# ---------------------------------------------------------------------------
+
+NUM_INTERNAL_TYPES = 7  # number of internal terrain type categories
+DIST_BIN_EDGES = [0, 1, 3, 5, 10, 999]  # distance-to-settlement bin boundaries
+
+# ---------------------------------------------------------------------------
+# Prior weighting
+# ---------------------------------------------------------------------------
+
+SURVIVE_WEIGHT = 3.0  # weight for rounds where settlements survived
+COLLAPSE_WEIGHT = 1.0  # weight for rounds where settlements collapsed
+SURVIVE_ROUNDS = frozenset({1, 2, 5})  # round numbers classified as survive rounds
+
+# ---------------------------------------------------------------------------
+# Dynamic cell classification
+# ---------------------------------------------------------------------------
+
+DYNAMIC_SETTLEMENT_RADIUS = 3  # distance threshold for dynamic cells near settlements
+DYNAMIC_FOREST_RADIUS = 3  # forest cells within this distance of settlements are dynamic
+DYNAMIC_DIST_THRESHOLD = 3  # backtest: distance threshold for dynamic cell identification

@@ -14,21 +14,20 @@ from pathlib import Path
 import numpy as np
 
 from src.constants import (
+    COLLAPSE_WEIGHT,
+    DIST_BIN_EDGES,
+    NUM_INTERNAL_TYPES,
     NUM_PREDICTION_CLASSES,
     NUM_SEEDS,
     STATIC_TERRAIN_CONFIDENCE,
+    SURVIVE_ROUNDS,
+    SURVIVE_WEIGHT,
 )
 from src.features import compute_settlement_distance
 from src.prior_builder import _apply_floor_to_row
 from src.terrain import InternalTerrain
 
 logger = logging.getLogger(__name__)
-
-NUM_INTERNAL_TYPES = 7
-DIST_BIN_EDGES = [0, 1, 3, 5, 10, 999]
-SURVIVE_WEIGHT = 3.0
-COLLAPSE_WEIGHT = 1.0
-SURVIVE_ROUNDS = frozenset({1, 2, 5})
 
 
 def build_unified_priors(data_dir: str | Path) -> np.ndarray:
