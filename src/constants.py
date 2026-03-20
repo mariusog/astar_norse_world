@@ -191,3 +191,11 @@ DYNAMIC_DIST_THRESHOLD = 3  # backtest: distance threshold for dynamic cell iden
 SETTLEMENT_DENSITY_WINDOW = 7  # window size for settlement density filter
 SETTLEMENT_DENSITY_MAX_BIN = 5  # density values >= this are capped
 FEATURE_PROB_FLOOR = 0.01  # minimum probability per class after lookup
+
+# ---------------------------------------------------------------------------
+# Regime detection thresholds
+# ---------------------------------------------------------------------------
+
+REGIME_COLLAPSE_THRESHOLD = 0.05  # settlement survival rate below this = collapse
+REGIME_AGGRESSIVE_THRESHOLD = 0.35  # settlement survival rate above this = aggressive
+QUERY_DELAY_SECONDS = 0.2  # delay between API queries to avoid rate limiting
