@@ -111,3 +111,22 @@ Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.
 | - | - | - |
 
 ## Completed Tasks
+
+### T60: Round-over-round analysis
+**Status**: done
+**Branch**: `qa/T60-round-analysis`
+
+- [x] Create `scripts/analyze_rounds.py` (246 lines, under 250 limit)
+- [x] Load all captured round data from `data/rounds/` (R1 and R2)
+- [x] Compute mean GT probability vector per terrain type per round
+- [x] Measure prior stability: std dev across rounds for each terrain
+- [x] Identify most/least stable terrain types
+- [x] Compute rolling backtest: R1 priors -> R2 score
+- [x] Output summary to `docs/round_analysis.md` (29 lines, Tier 1 format)
+- [x] Lint passes (ruff check)
+- [x] All 40 tests pass
+
+**Result**:
+- **What changed**: Created analysis script and report for round-over-round terrain prior comparison
+- **Metrics**: R1->R2 backtest score = 30.1/100. Most stable terrain: Port (std=0.0002). Least stable: Settlement (std=0.0145). Settlement priors shifted from 0.14 to 0.17 between rounds.
+- **Tests**: All 40 existing tests pass, no regressions
