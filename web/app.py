@@ -50,6 +50,17 @@ async def dashboard(request: Request) -> HTMLResponse:
     return templates.TemplateResponse("index.html", {"request": request, "rounds": rounds})
 
 
+@app.get("/explorer/", response_class=HTMLResponse)
+async def explorer_redirect(request: Request) -> HTMLResponse:
+    """Redirect to the most recent round's explorer."""
+    from fastapi.responses import RedirectResponse
+
+    rounds = list_rounds()
+    if rounds:
+        return RedirectResponse(url=f"/explorer/{rounds[0]['id']}")
+    raise HTTPException(status_code=404, detail="No rounds available")
+
+
 @app.get("/explorer/{round_id}", response_class=HTMLResponse)
 async def explorer_page(request: Request, round_id: str) -> HTMLResponse:
     """Map explorer for a specific round."""
