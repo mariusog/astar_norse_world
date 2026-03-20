@@ -70,29 +70,40 @@ def main() -> None:
     obs_budget = args.budget - probe_used
     _run_observations(client, round_id, states, obs, obs_budget, w, h, args.dry_run)
 
-    # Build predictions: XGBoost base → blend observations → static → floor
-    predictions = []
-    grids = []
-    for si in range(len(states)):
-        grid = states[si][0]
-        grids.append(grid)
-        pred = _build_prediction(grid, model, obs, si)
-        predictions.append(pred)
-
-    # Validate
-    errors = validate_predictions(predictions, grids)
-    if errors and not args.force:
-        for e in errors:
-            logger.error("VALIDATION: %s", e)
-        sys.exit(1)
-
-    # Submit
-    for si, pred in enumerate(predictions):
-        _submit_seed(client, round_id, si, pred, args.dry_run)
-    logger.info("Done. %d seeds submitted.", len(states))
+    predictions, grids = _build_all(states, model, obs)
+    _validate_and_submit(client, round_id, predictions, grids, args.dry_run, args.force)
 
 
 # -- Phase 1: Regime detection ------------------------------------------------
+
+
+def _build_all(states: list, model: Any, obs: ObservationStore) -> tuple[list, list]:
+    """Build predictions and grids for all seeds."""
+    predictions, grids = [], []
+    for si in range(len(states)):
+        grid = states[si][0]
+        grids.append(grid)
+        predictions.append(_build_prediction(grid, model, obs, si))
+    return predictions, grids
+
+
+def _validate_and_submit(
+    client: AstarClient,
+    rid: str,
+    predictions: list,
+    grids: list,
+    dry: bool,
+    force: bool,
+) -> None:
+    """Validate predictions and submit all seeds."""
+    errors = validate_predictions(predictions, grids)
+    if errors and not force:
+        for e in errors:
+            logger.error("VALIDATION: %s", e)
+        sys.exit(1)
+    for si, pred in enumerate(predictions):
+        _submit_seed(client, rid, si, pred, dry)
+    logger.info("Done. %d seeds submitted.", len(predictions))
 
 
 def _probe_regime(
@@ -107,23 +118,10 @@ def _probe_regime(
     """Probe 1 viewport per seed, detect regime from settlement survival."""
     total_checked, total_survived, used = 0, 0, 0
     for si in range(len(states)):
-        grid = states[si][0]
-        cx, cy = _find_densest_settlement(grid)
-        if cx is None:
-            continue
-        vx = max(0, min(cx - _VP_SIZE // 2, w - _VP_SIZE))
-        vy = max(0, min(cy - _VP_SIZE // 2, h - _VP_SIZE))
-        if not dry_run:
-            try:
-                res = client.query(round_id, si, vx, vy, _VP_SIZE, _VP_SIZE)
-                patch = np.array(res["grid"], dtype=np.int32)
-                obs.add_observation(si, vx, vy, patch)
-                used += 1
-                time.sleep(_QUERY_DELAY)
-            except APIError as e:
-                logger.warning("Probe %d failed: %s", si, e)
-                continue
-        checked, survived = _count_survival(grid, obs, si)
+        ok = _probe_seed(client, round_id, si, states[si][0], obs, h, w, dry_run)
+        if ok:
+            used += 1
+        checked, survived = _count_survival(states[si][0], obs, si)
         total_checked += checked
         total_survived += survived
 
@@ -143,6 +141,34 @@ def _probe_regime(
         used,
     )
     return regime, used
+
+
+def _probe_seed(
+    client: AstarClient,
+    rid: str,
+    si: int,
+    grid: np.ndarray,
+    obs: ObservationStore,
+    h: int,
+    w: int,
+    dry_run: bool,
+) -> bool:
+    """Execute one probe query on a seed. Returns True if query succeeded."""
+    cx, cy = _find_densest_settlement(grid)
+    if cx is None:
+        return False
+    if dry_run:
+        return False
+    vx = max(0, min(cx - _VP_SIZE // 2, w - _VP_SIZE))
+    vy = max(0, min(cy - _VP_SIZE // 2, h - _VP_SIZE))
+    try:
+        res = client.query(rid, si, vx, vy, _VP_SIZE, _VP_SIZE)
+        obs.add_observation(si, vx, vy, np.array(res["grid"], dtype=np.int32))
+        time.sleep(_QUERY_DELAY)
+        return True
+    except APIError as e:
+        logger.warning("Probe %d failed: %s", si, e)
+        return False
 
 
 def _find_densest_settlement(grid: np.ndarray) -> tuple[int | None, int | None]:
