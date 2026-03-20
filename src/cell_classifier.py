@@ -19,8 +19,6 @@ DYNAMIC_SETTLEMENT_RADIUS = 3
 DYNAMIC_FOREST_RADIUS = 3
 
 # Target fraction of map that should be classified dynamic
-TARGET_DYNAMIC_FRACTION_MIN = 0.25
-TARGET_DYNAMIC_FRACTION_MAX = 0.45
 
 
 def classify_cells(grid: np.ndarray) -> np.ndarray:

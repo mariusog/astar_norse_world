@@ -97,7 +97,7 @@ def save_priors(
     data: dict[str, np.ndarray] = {"priors": priors}
     if dist_priors is not None:
         data["dist_priors"] = dist_priors
-    np.savez(path, **data)  # type: ignore[arg-type]  # type: ignore[arg-type]
+    np.savez(path, **data)  # type: ignore[arg-type]
     logger.info("Saved priors to %s", path)
 
 
