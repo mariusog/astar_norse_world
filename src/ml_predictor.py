@@ -90,8 +90,11 @@ def _settlement_mask(grid: np.ndarray) -> np.ndarray:
 def build_training_data(
     data_dir: str | Path,
     exclude_round: str | None = None,
+    exclude_round_numbers: set[int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
-    """Build (X, y) arrays from saved round data, optionally excluding one round."""
+    """Build (X, y) arrays from saved round data, optionally excluding rounds."""
+    import json
+
     data_path = Path(data_dir)
     round_dirs = sorted(d for d in data_path.iterdir() if d.is_dir())
 
@@ -101,6 +104,12 @@ def build_training_data(
     for rdir in round_dirs:
         if exclude_round and rdir.name == exclude_round:
             continue
+        if exclude_round_numbers:
+            rj = rdir / "round.json"
+            if rj.exists():
+                rnum = json.loads(rj.read_text()).get("round_number", 0)
+                if rnum in exclude_round_numbers:
+                    continue
         _load_round_samples(rdir, all_x, all_y)
 
     x_combined = np.concatenate(all_x, axis=0)

@@ -212,9 +212,9 @@ _REGIME_EXCLUDE: dict[str, set[int]] = {
 
 
 def _train_regime_model(regime: str) -> Any:
-    """Train XGBoost on rounds matching the detected regime."""
-    # Train on all historical rounds — XGBoost learns regime patterns from data
-    x, y = build_training_data(_DATA_DIR, exclude_round=None)
+    """Train XGBoost excluding rounds that don't match the detected regime."""
+    exclude = _REGIME_EXCLUDE.get(regime, set())
+    x, y = build_training_data(_DATA_DIR, exclude_round_numbers=exclude or None)
     model = train_model(x, y, seed=42)
     logger.info("Trained XGBoost on regime=%s (%d samples)", regime, len(x))
     return model
