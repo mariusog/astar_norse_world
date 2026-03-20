@@ -1,0 +1,47 @@
+<div class="card">
+    <h2>Backtest Result: {{ result.strategy_name }}</h2>
+    <p><strong>Average Score:</strong>
+        <span class="{% if result.avg_score >= 70 %}score-good{% elif result.avg_score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+            {{ "%.2f" | format(result.avg_score) }}
+        </span>
+    </p>
+    <p><strong>Timestamp:</strong> {{ result.timestamp }}</p>
+
+    <table>
+        <thead>
+            <tr><th>Round</th><th>Seed Scores</th><th>Round Avg</th></tr>
+        </thead>
+        <tbody>
+            {% for rn, seeds in result.scores.items() | sort %}
+            <tr>
+                <td>{{ rn }}</td>
+                <td>{% for s in seeds %}{{ "%.1f" | format(s) }}{% if not loop.last %}, {% endif %}{% endfor %}</td>
+                <td class="{% if seeds | sum / seeds | length >= 70 %}score-good{% elif seeds | sum / seeds | length >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                    {{ "%.2f" | format(seeds | sum / seeds | length) }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if leaderboard %}
+<div class="card">
+    <h2>Updated Leaderboard</h2>
+    <table>
+        <thead>
+            <tr><th>#</th><th>Strategy</th><th>Avg Score</th><th>Rounds</th></tr>
+        </thead>
+        <tbody>
+            {% for entry in leaderboard %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><a href="/research/model/{{ entry.strategy }}">{{ entry.strategy }}</a></td>
+                <td class="{% if entry.avg_score >= 70 %}score-good{% elif entry.avg_score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                    {{ entry.avg_score }}</td>
+                <td>{{ entry.num_rounds }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}

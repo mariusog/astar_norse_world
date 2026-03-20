@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Backtest - Astar Norse World{% endblock %}
+{% block content %}
+<h1>Model Backtesting</h1>
+
+<div class="card">
+    <h2>Run LOO Backtest</h2>
+    <p>Leave-one-out evaluation: for each round, train on all OTHER rounds and score against the held-out round's ground truth.</p>
+    <div class="flex-row" style="margin-top: 1rem;">
+        <select id="bt-strategy">
+            {% for s in strategies %}
+            <option value="{{ s.name }}">{{ s.name }} - {{ s.description }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-primary" id="bt-run-btn"
+                hx-post=""
+                hx-target="#bt-output"
+                hx-indicator="#bt-loading"
+                onclick="var sel = document.getElementById('bt-strategy').value; this.setAttribute('hx-post', '/research/backtest/' + sel); htmx.process(this);">
+            Run LOO Backtest
+        </button>
+        <span id="bt-loading" class="htmx-indicator">
+            <span class="spinner"></span> Running... XGBoost strategies take 30-60s per round.
+        </span>
+    </div>
+</div>
+
+<div id="bt-output">
+    {% if leaderboard %}
+    <div class="card">
+        <h2>Leaderboard (Best Score Per Strategy)</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th><th>Strategy</th><th>Avg Score</th><th>Rounds</th>
+                    {% for rn in round_numbers %}<th>R{{ rn }}</th>{% endfor %}
+                    <th>Delta from Best</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% set best_score = leaderboard[0].avg_score if leaderboard else 0 %}
+                {% for entry in leaderboard %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td><a href="/research/model/{{ entry.strategy }}">{{ entry.strategy }}</a></td>
+                    <td class="{% if entry.avg_score >= 70 %}score-good{% elif entry.avg_score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                        {{ entry.avg_score }}</td>
+                    <td>{{ entry.num_rounds }}</td>
+                    {% for rn in round_numbers %}
+                    <td>{{ entry.per_round.get(rn, '-') }}</td>
+                    {% endfor %}
+                    <td>{% if loop.index == 1 %}-{% else %}{{ "%.2f" | format(entry.avg_score - best_score) }}{% endif %}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Side-by-Side Comparison</h2>
+    <div class="flex-row">
+        <div>
+            <label>Strategy A:</label>
+            <select id="cmp-a">
+                {% for s in strategies %}
+                <option value="{{ s.name }}">{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label>Strategy B:</label>
+            <select id="cmp-b">
+                {% for s in strategies %}
+                <option value="{{ s.name }}" {% if loop.index == 2 %}selected{% endif %}>{{ s.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    {% if leaderboard | length >= 2 %}
+    <table style="margin-top: 1rem;">
+        <thead>
+            <tr>
+                <th>Round</th>
+                {% for entry in leaderboard[:2] %}
+                <th>{{ entry.strategy }}</th>
+                {% endfor %}
+                <th>Difference</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rn in round_numbers %}
+            <tr>
+                <td>{{ rn }}</td>
+                {% for entry in leaderboard[:2] %}
+                <td>{{ entry.per_round.get(rn, '-') }}</td>
+                {% endfor %}
+                <td>
+                    {% set a = leaderboard[0].per_round.get(rn) %}
+                    {% set b = leaderboard[1].per_round.get(rn) %}
+                    {% if a is not none and b is not none %}
+                        {{ "%.2f" | format(a - b) }}
+                    {% else %}-{% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="margin-top: 0.75rem; color: #7f8c8d;">Run backtests for at least 2 strategies to compare.</p>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,33 +1,46 @@
 {% extends "base.html" %}
-{% block title %}Dashboard - Norse World{% endblock %}
+{% block title %}Dashboard - Astar Norse World{% endblock %}
 {% block content %}
-<h1>Competition Rounds</h1>
-{% if rounds %}
-<table class="data-table">
-    <thead>
-        <tr>
-            <th>Round #</th>
-            <th>Weight</th>
-            <th>Status</th>
-            <th>Seeds</th>
-            <th>Date</th>
-            <th>Actions</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for r in rounds %}
-        <tr>
-            <td>{{ r.round_number }}</td>
-            <td>{{ r.round_weight }}</td>
-            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
-            <td>{{ r.seeds_count }}</td>
-            <td>{{ r.event_date or '-' }}</td>
-            <td><a href="/explorer/{{ r.id }}" class="btn btn-sm">Explore</a></td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
-{% else %}
-<p class="muted">No rounds found in data/rounds/</p>
-{% endif %}
+<h1>Astar Norse World Dashboard</h1>
+
+<div class="card">
+    <h2>Model Leaderboard</h2>
+    {% if leaderboard %}
+    <table>
+        <thead>
+            <tr><th>#</th><th>Strategy</th><th>Avg Score</th><th>Rounds</th><th>Timestamp</th></tr>
+        </thead>
+        <tbody>
+            {% for entry in leaderboard %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><a href="/research/model/{{ entry.strategy }}">{{ entry.strategy }}</a></td>
+                <td class="{% if entry.avg_score >= 70 %}score-good{% elif entry.avg_score >= 50 %}score-mid{% else %}score-bad{% endif %}">{{ entry.avg_score }}</td>
+                <td>{{ entry.num_rounds }}</td>
+                <td>{{ entry.timestamp }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No backtest results yet. Go to <a href="/research/">Research</a> to run backtests.</p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Available Strategies</h2>
+    <table>
+        <thead>
+            <tr><th>Name</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            {% for s in strategies %}
+            <tr>
+                <td>{{ s.name }}</td>
+                <td>{{ s.description }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
