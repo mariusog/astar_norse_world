@@ -1,0 +1,254 @@
+[
+  {
+    "x": 16,
+    "y": 15,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 20,
+    "y": 15,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 18,
+    "y": 12,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 5,
+    "y": 10,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 18,
+    "y": 5,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 31,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 3,
+    "y": 12,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 6,
+    "y": 5,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 4,
+    "y": 29,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 29,
+    "y": 21,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 19,
+    "y": 20,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 7,
+    "y": 21,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 35,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 32,
+    "y": 36,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 3,
+    "y": 9,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 10,
+    "y": 23,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 26,
+    "y": 25,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 21,
+    "y": 24,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 6,
+    "y": 17,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 13,
+    "y": 18,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 15,
+    "y": 13,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 7,
+    "y": 8,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 11,
+    "y": 28,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 9,
+    "y": 6,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 31,
+    "y": 30,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 12,
+    "y": 20,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 32,
+    "y": 25,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 11,
+    "y": 33,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 2,
+    "y": 23,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 16,
+    "y": 27,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 14,
+    "y": 4,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 30,
+    "y": 4,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 2,
+    "y": 5,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 12,
+    "y": 25,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 30,
+    "y": 28,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 24,
+    "y": 11,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 8,
+    "y": 35,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 10,
+    "y": 26,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 17,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 16,
+    "y": 20,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 27,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 24,
+    "y": 17,
+    "owner_id": 0,
+    "is_port": false
+  }
+]

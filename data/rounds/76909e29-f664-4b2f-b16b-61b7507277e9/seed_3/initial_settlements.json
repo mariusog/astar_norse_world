@@ -1,0 +1,338 @@
+[
+  {
+    "x": 14,
+    "y": 6,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 28,
+    "y": 36,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 31,
+    "y": 11,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 30,
+    "y": 8,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 23,
+    "y": 35,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 17,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 31,
+    "y": 31,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 36,
+    "y": 17,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 23,
+    "y": 19,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 21,
+    "y": 33,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 29,
+    "y": 25,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 20,
+    "y": 18,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 6,
+    "y": 36,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 34,
+    "y": 29,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 24,
+    "y": 23,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 11,
+    "y": 16,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 25,
+    "y": 33,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 35,
+    "y": 23,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 23,
+    "y": 8,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 13,
+    "y": 35,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 17,
+    "y": 24,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 33,
+    "y": 34,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 12,
+    "y": 18,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 9,
+    "y": 27,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 14,
+    "y": 13,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 32,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 28,
+    "y": 22,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 28,
+    "y": 3,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 7,
+    "y": 10,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 9,
+    "y": 33,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 14,
+    "y": 26,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 20,
+    "y": 31,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 5,
+    "y": 17,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 20,
+    "y": 14,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 14,
+    "y": 22,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 28,
+    "y": 17,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 26,
+    "y": 37,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 17,
+    "y": 18,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 6,
+    "y": 2,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 31,
+    "y": 23,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 3,
+    "y": 29,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 25,
+    "y": 6,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 36,
+    "y": 8,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 10,
+    "y": 13,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 20,
+    "y": 9,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 20,
+    "y": 23,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 32,
+    "y": 17,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 29,
+    "y": 13,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 6,
+    "y": 31,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 2,
+    "y": 3,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 25,
+    "y": 10,
+    "owner_id": 0,
+    "is_port": true
+  },
+  {
+    "x": 8,
+    "y": 15,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 32,
+    "y": 25,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 8,
+    "y": 24,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 9,
+    "y": 7,
+    "owner_id": 0,
+    "is_port": false
+  },
+  {
+    "x": 9,
+    "y": 36,
+    "owner_id": 0,
+    "is_port": false
+  }
+]
