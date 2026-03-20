@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Norse World Dashboard{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">Norse World</div>
+        <div class="nav-links">
+            <a href="/" class="nav-link">Dashboard</a>
+            <a href="/explorer/{{ all_rounds[0].id if all_rounds is defined and all_rounds else '' }}" class="nav-link">Explorer</a>
+            <a href="/research" class="nav-link">Research</a>
+            <a href="/backtest" class="nav-link">Backtest</a>
+        </div>
+    </nav>
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

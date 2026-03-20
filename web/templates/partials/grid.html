@@ -1,0 +1,41 @@
+<div class="grid-wrapper">
+    <table class="map-grid">
+        {% for row_idx in range(cells|length) %}
+        <tr>
+            {% for cell in cells[row_idx] %}
+            <td class="grid-cell"
+                style="background-color: {{ cell.color }}"
+                onclick="showCell({{ row_idx }}, {{ loop.index0 }})"
+                title="({{ row_idx }},{{ loop.index0 }}) = {{ cell.val }}">
+            </td>
+            {% endfor %}
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+
+<!-- Update sidebar legend -->
+<div id="legend-panel" hx-swap-oob="innerHTML:#legend-panel">
+    <h3>Legend</h3>
+    {% if legend %}
+    <div class="legend-items">
+        {% for item in legend %}
+        <div class="legend-item">
+            <span class="legend-swatch" style="background-color: {{ item.color }}"></span>
+            {{ item.name }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if counts %}
+    <h3>Cell Counts</h3>
+    <div class="stat-list">
+        {% for name, count in counts.items() %}
+        <div class="stat-row">
+            <span>{{ name }}</span>
+            <span class="stat-val">{{ count }}</span>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

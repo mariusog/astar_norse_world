@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Norse World{% endblock %}
+{% block content %}
+<h1>Competition Rounds</h1>
+{% if rounds %}
+<table class="data-table">
+    <thead>
+        <tr>
+            <th>Round #</th>
+            <th>Weight</th>
+            <th>Status</th>
+            <th>Seeds</th>
+            <th>Date</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for r in rounds %}
+        <tr>
+            <td>{{ r.round_number }}</td>
+            <td>{{ r.round_weight }}</td>
+            <td><span class="badge badge-{{ r.status }}">{{ r.status }}</span></td>
+            <td>{{ r.seeds_count }}</td>
+            <td>{{ r.event_date or '-' }}</td>
+            <td><a href="/explorer/{{ r.id }}" class="btn btn-sm">Explore</a></td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p class="muted">No rounds found in data/rounds/</p>
+{% endif %}
+{% endblock %}

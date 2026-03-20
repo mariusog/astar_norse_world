@@ -1,0 +1,14 @@
+<h3>Cell ({{ row }}, {{ col }})</h3>
+<p class="cell-terrain">Terrain: <strong>{{ terrain }}</strong></p>
+<h4>GT Probability Distribution</h4>
+<div class="prob-bars">
+    {% for item in distribution %}
+    <div class="prob-row">
+        <span class="prob-label">{{ item.name }}</span>
+        <div class="prob-bar-bg">
+            <div class="prob-bar-fill" style="width: {{ (item.prob * 100)|round(1) }}%"></div>
+        </div>
+        <span class="prob-val">{{ (item.prob * 100)|round(1) }}%</span>
+    </div>
+    {% endfor %}
+</div>
