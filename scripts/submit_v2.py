@@ -20,7 +20,7 @@ from src.constants import (
     TOTAL_QUERY_BUDGET,
 )
 from src.observation import ObservationStore
-from src.prediction_validator import validate_predictions
+from src.prediction_validator import backtest_check, validate_predictions
 from src.regime import build_regime_priors
 from src.soft_regime import estimate_regime_confidence, soft_blend_predictions
 from src.state_loader import load_round
@@ -66,6 +66,7 @@ def main() -> None:
     )
     grids = [s[0] for s in states]
     errors = validate_predictions(predictions, grids)
+    errors.extend(backtest_check(predictions, grids, _DATA_DIR))
     if errors and not args.force:
         for e in errors:
             logger.error("VALIDATION: %s", e)

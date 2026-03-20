@@ -52,6 +52,7 @@ def validate_predictions(
         errors.extend(_check_single_prediction(pred, grid, seed_idx=i))
 
     errors.extend(_check_non_trivial(predictions))
+    errors.extend(_check_prior_consistency(predictions, grids))
     return errors
 
 
@@ -158,6 +159,49 @@ def _check_static_terrain(
     return errors
 
 
+def _check_prior_consistency(
+    predictions: list[np.ndarray],
+    grids: list[np.ndarray],
+    data_dir: str = "data/rounds",
+) -> list[str]:
+    """Verify predictions are consistent with freshly-built priors.
+
+    Catches bugs where the submission pipeline applies wrong priors
+    (e.g. collapse instead of survive, or stale cached priors).
+    """
+    try:
+        from src.unified_priors import (
+            build_distance_priors,
+            build_unified_priors,
+            predict_from_priors,
+        )
+
+        priors = build_unified_priors(data_dir)
+        dist_priors = build_distance_priors(data_dir)
+    except Exception:
+        return []  # can't build priors, skip check
+
+    errors: list[str] = []
+    for i, (pred, grid) in enumerate(zip(predictions, grids, strict=True)):
+        fresh = predict_from_priors(grid, priors, dist_priors)
+        fresh = np.maximum(fresh, PROBABILITY_FLOOR)
+        fresh = fresh / fresh.sum(axis=2, keepdims=True)
+
+        # KL(fresh || pred) — how much does our prediction diverge from fresh priors?
+        p = np.maximum(fresh, PROBABILITY_FLOOR)
+        q = np.maximum(pred, PROBABILITY_FLOOR)
+        kl = np.sum(p * np.log(p / q), axis=2)
+        avg_kl = float(kl.mean())
+
+        if avg_kl > PRIOR_CONSISTENCY_MAX_DIVERGENCE:
+            errors.append(
+                f"Seed {i}: prediction diverges from fresh priors "
+                f"(avg KL={avg_kl:.3f}, max={PRIOR_CONSISTENCY_MAX_DIVERGENCE}). "
+                f"Wrong priors or stale cache?"
+            )
+    return errors
+
+
 def _check_non_trivial(predictions: list[np.ndarray]) -> list[str]:
     """Predictions should differ across seeds (not identical copies)."""
     if len(predictions) < 2:
@@ -166,4 +210,96 @@ def _check_non_trivial(predictions: list[np.ndarray]) -> list[str]:
     all_identical = all(np.allclose(ref, p, atol=1e-8) for p in predictions[1:])
     if all_identical:
         return ["All seed predictions are identical -- likely a bug"]
+    return []
+
+
+# ---------------------------------------------------------------------------
+# Backtest sanity check (catches wrong-regime bugs like R5)
+# ---------------------------------------------------------------------------
+
+BACKTEST_MIN_SCORE = 65.0
+PRIOR_CONSISTENCY_MAX_DIVERGENCE = 0.05  # max avg KL between prediction and fresh priors
+
+
+def backtest_check(
+    predictions: list[np.ndarray],
+    grids: list[np.ndarray],
+    data_dir: str = "data/rounds",
+) -> list[str]:
+    """Score predictions against the latest historical round as sanity check.
+
+    If the same prior pipeline scores < BACKTEST_MIN_SCORE on a known
+    round, something is likely wrong (e.g. wrong regime priors).
+
+    Args:
+        predictions: The actual predictions to submit (unused directly,
+            but we rebuild from the same pipeline for comparison).
+        grids: Initial grids for the current round.
+        data_dir: Path to historical round data.
+
+    Returns:
+        List of warning messages. Empty = backtest passed.
+    """
+    from pathlib import Path
+
+    from src.scoring import score_prediction
+
+    rounds_dir = Path(data_dir)
+    if not rounds_dir.exists():
+        return []
+
+    # Find the most recent round with GT
+    import json
+
+    best_round = None
+    best_rnum = 0
+    for rd in rounds_dir.iterdir():
+        if not rd.is_dir():
+            continue
+        rj = rd / "round.json"
+        gt0 = rd / "seed_0" / "ground_truth.npy"
+        if rj.exists() and gt0.exists():
+            rdata = json.loads(rj.read_text())
+            rnum = rdata.get("round_number", 0)
+            if rnum > best_rnum:
+                best_rnum = rnum
+                best_round = rd
+
+    if best_round is None:
+        return []
+
+    # Build predictions for the reference round using the SAME pipeline
+    from src.unified_priors import (
+        build_distance_priors,
+        build_unified_priors,
+        predict_from_priors,
+    )
+
+    priors = build_unified_priors(data_dir)
+    dist_priors = build_distance_priors(data_dir)
+
+    scores = []
+    for i in range(5):
+        gt_path = best_round / f"seed_{i}" / "ground_truth.npy"
+        grid_path = best_round / f"seed_{i}" / "initial_grid.npy"
+        if not gt_path.exists() or not grid_path.exists():
+            continue
+        gt = np.load(gt_path)
+        grid = np.load(grid_path)
+        pred = predict_from_priors(grid, priors, dist_priors)
+        pred = np.maximum(pred, PROBABILITY_FLOOR)
+        pred = pred / pred.sum(axis=2, keepdims=True)
+        scores.append(score_prediction(gt, pred)["score"])
+
+    if not scores:
+        return []
+
+    avg = float(np.mean(scores))
+    if avg < BACKTEST_MIN_SCORE:
+        return [
+            f"Backtest FAILED: priors score {avg:.1f} on R{best_rnum} "
+            f"(need >= {BACKTEST_MIN_SCORE}). Pipeline may be broken."
+        ]
+
+    logger.info("Backtest passed: priors score %.1f on R%d", avg, best_rnum)
     return []
