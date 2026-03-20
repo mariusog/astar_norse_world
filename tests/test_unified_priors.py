@@ -98,13 +98,13 @@ class TestBuildUnifiedPriors:
     def test_returns_correct_shape(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         assert priors.shape == (NUM_INTERNAL_TYPES, 6)
 
     def test_rows_are_normalized(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         for t in range(NUM_INTERNAL_TYPES):
             assert pytest.approx(priors[t].sum(), abs=1e-6) == 1.0
 
@@ -112,14 +112,14 @@ class TestBuildUnifiedPriors:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
         _make_round_dir(tmp_path, 3, [g], [_collapse_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         # Settlement type should lean toward survive (class 1)
         # because R1 is survive (weight 3) vs R3 collapse (weight 1)
         settle_idx = InternalTerrain.SETTLEMENT
         assert priors[settle_idx, 1] > priors[settle_idx, 4]
 
     def test_no_rounds_returns_uniform(self, tmp_path: Path) -> None:
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         expected = 1.0 / 6
         assert pytest.approx(priors[0, 0], abs=1e-6) == expected
 
@@ -137,20 +137,20 @@ class TestBuildDistancePriors:
     def test_returns_correct_shape(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        dp = build_distance_priors(tmp_path)
+        dp = build_distance_priors(tmp_path / "rounds")
         num_bins = len(DIST_BIN_EDGES) - 1
         assert dp.shape == (NUM_INTERNAL_TYPES, num_bins, 6)
 
     def test_rows_are_normalized(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        dp = build_distance_priors(tmp_path)
+        dp = build_distance_priors(tmp_path / "rounds")
         for t in range(NUM_INTERNAL_TYPES):
             for b in range(dp.shape[1]):
                 assert pytest.approx(dp[t, b].sum(), abs=1e-6) == 1.0
 
     def test_no_data_returns_uniform(self, tmp_path: Path) -> None:
-        dp = build_distance_priors(tmp_path)
+        dp = build_distance_priors(tmp_path / "rounds")
         assert pytest.approx(dp[0, 0, 0], abs=1e-6) == 1.0 / 6
 
 
@@ -163,14 +163,14 @@ class TestPredictFromPriors:
     def test_output_shape(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         pred = predict_from_priors(g, priors)
         assert pred.shape == (4, 4, 6)
 
     def test_probabilities_sum_to_one(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         pred = predict_from_priors(g, priors)
         sums = pred.sum(axis=2)
         np.testing.assert_allclose(sums, 1.0, atol=1e-6)
@@ -178,14 +178,14 @@ class TestPredictFromPriors:
     def test_floor_applied(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         pred = predict_from_priors(g, priors)
         assert pred.min() >= 0.01 - 1e-9
 
     def test_ocean_gets_static_override(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
         pred = predict_from_priors(g, priors)
         # Ocean cells should have high empty probability
         assert pred[0, 0, 0] > 0.9
@@ -193,8 +193,8 @@ class TestPredictFromPriors:
     def test_with_distance_priors(self, tmp_path: Path) -> None:
         g = _simple_grid()
         _make_round_dir(tmp_path, 1, [g], [_survive_gt(g)])
-        priors = build_unified_priors(tmp_path)
-        dp = build_distance_priors(tmp_path)
+        priors = build_unified_priors(tmp_path / "rounds")
+        dp = build_distance_priors(tmp_path / "rounds")
         pred = predict_from_priors(g, priors, dist_priors=dp)
         assert pred.shape == (4, 4, 6)
         sums = pred.sum(axis=2)

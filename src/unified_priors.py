@@ -114,7 +114,7 @@ def load_priors(path: str | Path) -> tuple[np.ndarray, np.ndarray | None]:
 
 def _load_round_metadata(data_dir: str | Path) -> dict[int, Path]:
     """Discover rounds and map round_number -> directory path."""
-    rounds_dir = Path(data_dir) / "rounds"
+    rounds_dir = Path(data_dir)
     if not rounds_dir.exists():
         return {}
     result: dict[int, Path] = {}
