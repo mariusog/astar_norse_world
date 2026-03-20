@@ -1,3 +1,4 @@
+# LEGACY: Not used by active pipeline (submit_v3 + ml_predictor). Kept for tests.
 """Multi-round terrain prior builder.
 
 Aggregates ground truth data across historical rounds to build

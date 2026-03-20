@@ -1,3 +1,4 @@
+# LEGACY: Not used by active pipeline (submit_v3 + ml_predictor). Kept for tests.
 """Simulation calibration by comparing observed and simulated distributions.
 
 Detects systematic biases in local simulation vs server observations

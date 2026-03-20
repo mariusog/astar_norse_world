@@ -1,3 +1,4 @@
+# LEGACY: Not used by active pipeline (submit_v3 + ml_predictor). Kept for tests.
 """Position-aware priors using settlement distance model.
 
 For each terrain type and distance band from settlements, computes

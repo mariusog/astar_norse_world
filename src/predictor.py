@@ -1,3 +1,4 @@
+# LEGACY: Not used by active pipeline (submit_v3 + ml_predictor). Kept for tests.
 """Prediction tensor generator combining Monte Carlo sim and observations.
 
 Blends local simulation output with server observations to produce

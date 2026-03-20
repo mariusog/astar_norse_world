@@ -1,3 +1,4 @@
+# LEGACY: Superseded by scripts/submit_v3.py. Kept for test compatibility.
 """V2 submission pipeline using feature-based per-cell predictions.
 
 Replaces flat terrain priors with regime-adaptive feature lookup,
