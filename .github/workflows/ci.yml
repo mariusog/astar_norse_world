@@ -55,10 +55,6 @@ jobs:
           bandit -r src/ -ll -q
           pip-audit --strict || true
 
-      - name: Tests
-        run: python -m pytest tests/ -q --tb=line -m "not slow" 2>&1 | tail -20
-
-      - name: Test coverage
+      - name: Tests with coverage
         run: |
-          python -m pytest tests/ --cov=src --cov-report=term-missing -q 2>&1 | tail -20
-        continue-on-error: true  # Remove once coverage target is met
+          python -m pytest tests/ -m "not slow" --cov=src --cov-report=term-missing -q --tb=line 2>&1 | tail -30
