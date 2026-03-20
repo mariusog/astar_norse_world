@@ -17,13 +17,11 @@ Each task has: ID, status, agent, title, details, and optional dependencies.
 
 | ID | Agent | Title | Details | Depends on |
 |----|-------|-------|---------|------------|
-| T200 | core-agent | Feature-based per-cell predictor | Build lookup from (terrain_type, distance, settlement_density) → probability vector using historical GT; replaces flat terrain priors; target: +4 pts on survive rounds in LOO backtest | - |
-| T201 | core-agent | Regime-adaptive feature model | Combine feature predictor with regime detection: use feature model for survive/aggressive, flat collapse priors for collapse; auto-select based on probe results | T200 |
-| T202 | core-agent | Wire feature model into submit_v2 | Replace `_build_adaptive_priors()` with feature model lookup; keep same two-phase pipeline (probe → adapt → observe → submit) | T200, T201 |
-| T210 | feature-agent | XGBoost per-cell classifier | Train XGBoost on per-cell features (terrain, distance, settlement density, forest density, coastal, neighbor types) → 6-class probability; use all 6 rounds as training data | T200 |
-| T211 | feature-agent | Local simulation calibration | Use observations to calibrate local sim parameters; run calibrated sim 100+ times for Monte Carlo probability estimates that match server dynamics | - |
-| T220 | qa-agent | LOO backtest suite for feature model | Strict leave-one-out backtest of feature model across all 6 rounds; verify no data leakage; compare to flat priors baseline; fail if avg < 75 | T200 |
-| T221 | qa-agent | Observation blending regression test | Verify observation blending improves score on every round; test with simulated GT-sampled observations at 1, 3, 5 obs/cell | T202 |
+| T300 | core-agent | Web: FastAPI backend + data API | FastAPI app with JSON endpoints for rounds, predictions, models; serves from data/rounds/ | - |
+| T301 | core-agent | Web: Map explorer page | HTMX/Jinja page with 40x40 colored grid, GT/prediction/observation overlays, seed selector, terrain legend | T300 |
+| T302 | feature-agent | Web: Model research dashboard | Strategy leaderboard with LOO scores, per-round bars, run/compare, automated model search | T300 |
+| T303 | feature-agent | Web: Round dashboard + submission | All rounds with scores, regime, active status, one-click submit with live progress | T300 |
+| T304 | qa-agent | Web: Backtest page | Interactive LOO backtest: pick strategy, run against history, per-round scores with charts | T300 |
 
 ## In Progress
 
