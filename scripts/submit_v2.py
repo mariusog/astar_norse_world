@@ -21,6 +21,8 @@ from src.constants import (
 )
 from src.observation import ObservationStore
 from src.prediction_validator import validate_predictions
+from src.regime import build_regime_priors
+from src.soft_regime import estimate_regime_confidence, soft_blend_predictions
 from src.state_loader import load_round
 from src.terrain import InternalTerrain
 from src.unified_priors import build_distance_priors, build_unified_priors
@@ -49,11 +51,19 @@ def main() -> None:
     logger.info("Round %s: %dx%d, %d seeds", round_id, w, h, n_seeds)
     priors = build_unified_priors(_DATA_DIR)
     dist_priors = build_distance_priors(_DATA_DIR)
+    regime_priors = build_regime_priors(_DATA_DIR)
     viewports = _plan_all_queries(states, w, h, args.budget)
     obs = ObservationStore(h, w, n_seeds)
     if not args.dry_run:
         _execute_queries(client, round_id, viewports, obs)
     predictions = _build_all_predictions(states, priors, dist_priors, obs)
+    predictions = _apply_soft_regime(
+        predictions,
+        states,
+        obs,
+        regime_priors,
+        n_seeds,
+    )
     grids = [s[0] for s in states]
     errors = validate_predictions(predictions, grids)
     if errors and not args.force:
@@ -90,23 +100,33 @@ def _resolve_round(client: AstarClient, rid: str | None) -> tuple[str, dict[str,
     return active["id"], client.get_round(active["id"])
 
 
-# -- Viewport planning ------------------------------------------------------
-
-
 def _find_settlements(grid: np.ndarray) -> list[tuple[int, int]]:
     """Return (x, y) of settlement and port cells."""
     ys, xs = np.where((grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT))
     return list(zip(xs.tolist(), ys.tolist(), strict=True))
 
 
-def _dedupe_centers(cells: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """Reduce settlement cells to spread-out cluster centers."""
-    seen: set[tuple[int, int]] = set()
+def _find_dense_clusters(
+    cells: list[tuple[int, int]],
+    max_clusters: int = 4,
+) -> list[tuple[int, int]]:
+    """Pick settlements with most nearby neighbors for max overlap."""
+    if len(cells) <= max_clusters:
+        return cells
+    scored = []
+    for cx, cy in cells:
+        neighbors = sum(
+            1 for ox, oy in cells if abs(ox - cx) <= _VP_SIZE and abs(oy - cy) <= _VP_SIZE
+        )
+        scored.append((neighbors, cx, cy))
+    scored.sort(reverse=True)
+    # Pick top clusters with minimum spacing
     out: list[tuple[int, int]] = []
-    for cx, cy in sorted(cells, key=lambda c: (c[1], c[0])):
-        key = (cx // _VP_OFFSET, cy // _VP_OFFSET)
-        if key not in seen:
-            seen.add(key)
+    for _score, cx, cy in scored:
+        if len(out) >= max_clusters:
+            break
+        too_close = any(abs(cx - ox) < _VP_OFFSET and abs(cy - oy) < _VP_OFFSET for ox, oy in out)
+        if not too_close:
             out.append((cx, cy))
     return out
 
@@ -134,7 +154,7 @@ def _plan_seed_viewports(grid: np.ndarray, w: int, h: int, budget: int) -> list[
     if not cells:
         return _tile_viewports(w, h, budget)
     vps: list[dict[str, int]] = []
-    for cx, cy in _dedupe_centers(cells):
+    for cx, cy in _find_dense_clusters(cells):
         if len(vps) >= budget:
             break
         vps.extend(_viewports_around(cx, cy, w, h, budget - len(vps), vps))
@@ -142,15 +162,9 @@ def _plan_seed_viewports(grid: np.ndarray, w: int, h: int, budget: int) -> list[
 
 
 def _tile_viewports(w: int, h: int, budget: int) -> list[dict[str, int]]:
-    """Fallback: tile the map when no settlements found."""
-    vps: list[dict[str, int]] = []
-    for y in range(0, h, _VP_SIZE):
-        for x in range(0, w, _VP_SIZE):
-            if len(vps) < budget:
-                vw = max(5, min(_VP_SIZE, w - x))
-                vh = max(5, min(_VP_SIZE, h - y))
-                vps.append({"x": x, "y": y, "w": vw, "h": vh})
-    return vps[:budget]
+    """Fallback: tile the map center when no settlements found."""
+    cx, cy = w // 2, h // 2
+    return _viewports_around(cx, cy, w, h, budget, [])
 
 
 def _plan_all_queries(
@@ -165,9 +179,6 @@ def _plan_all_queries(
             all_vps.append({"seed_index": si, **vp})
     logger.info("Planned %d queries across %d seeds", len(all_vps), len(states))
     return all_vps[:budget]
-
-
-# -- Query execution --------------------------------------------------------
 
 
 def _execute_queries(
@@ -202,7 +213,40 @@ def _execute_queries(
         time.sleep(_QUERY_DELAY)
 
 
-# -- Prediction building ----------------------------------------------------
+def _apply_soft_regime(
+    predictions: list[np.ndarray],
+    states: list[tuple[np.ndarray, list]],
+    obs: ObservationStore,
+    regime_priors: dict[str, dict[int, np.ndarray]],
+    n_seeds: int,
+) -> list[np.ndarray]:
+    """Soft-blend survive/collapse priors for unobserved cells."""
+    grids = [s[0] for s in states]
+    obs_stores = [obs] * n_seeds  # same store, indexed by seed
+    confidence = estimate_regime_confidence(grids, obs_stores)
+
+    collapse_priors = regime_priors.get("collapse", {})
+    result = []
+    for si in range(len(predictions)):
+        grid = grids[si]
+        coverage = obs.get_coverage_mask(si)
+        # Build collapse prediction for unobserved cells
+        h, w = grid.shape
+        collapse_pred = np.full((h, w, 6), 1.0 / 6)
+        for t_val, prior in collapse_priors.items():
+            mask = grid == t_val
+            if mask.any():
+                collapse_pred[mask] = prior
+        collapse_pred = _floor_and_normalize(collapse_pred)
+        blended = soft_blend_predictions(
+            predictions[si],
+            collapse_pred,
+            confidence,
+            coverage,
+        )
+        result.append(_floor_and_normalize(blended))
+
+    return result
 
 
 def _build_all_predictions(
@@ -212,12 +256,7 @@ def _build_all_predictions(
     obs: ObservationStore,
 ) -> list[np.ndarray]:
     """Build predictions for all seeds."""
-    predictions = []
-    for si in range(len(states)):
-        grid, _ = states[si]
-        pred = _build_prediction(grid, priors, dist_priors, obs, si)
-        predictions.append(pred)
-    return predictions
+    return [_build_prediction(s[0], priors, dist_priors, obs, i) for i, s in enumerate(states)]
 
 
 def _build_prediction(
