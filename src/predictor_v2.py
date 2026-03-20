@@ -222,7 +222,7 @@ def _accumulate_seed(
         return
     gt = np.load(gt_path)
     grid_raw = np.array(rd["initial_states"][seed_idx]["grid"])
-    internal = np.vectorize(_SERVER_TO_INTERNAL.get)(grid_raw)
+    internal = np.vectorize(lambda v: _SERVER_TO_INTERNAL.get(v, 1))(grid_raw)
     for t_val in range(7):
         mask = internal == t_val
         n = int(mask.sum())
