@@ -86,3 +86,56 @@ Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.
 | - | - | - |
 
 ## Completed Tasks
+
+### T40: Historical round collector
+**Status**: done
+**Branch**: `core/T40-T42-data-collection-features`
+
+- [x] `collect_all_rounds(client, data_dir)` — fetch all completed rounds, save ground truth + initial states
+- [x] Idempotent: skip already-captured rounds (check if ground_truth.npy exists)
+- [x] For each round: save round.json, per-seed ground_truth.npy, initial_grid.npy, initial_settlements.json, analysis_meta.json
+- [x] CLI: `python -m src.round_collector --token <JWT>` (also accept ASTAR_TOKEN env var)
+- [x] Uses RoundClient protocol (compatible with future api_client.AstarClient)
+- [x] Type annotations, lint clean
+
+**Result**:
+- **What changed**: Created `src/round_collector.py` (236 lines) with server terrain mapping, idempotent collection, and CLI entry point
+- **Metrics**: 11 tests passing for round collector
+- **Tests**: tests/test_round_collector.py with MockClient, grid parsing, idempotency, and end-to-end collection tests
+
+---
+
+### T41: Multi-round terrain prior builder
+**Status**: done
+**Branch**: `core/T40-T42-data-collection-features`
+
+- [x] `build_terrain_priors(data_dir)` — scan all rounds, aggregate GT per initial terrain type
+- [x] Weight recent rounds higher (exponential decay with round_number)
+- [x] `save_priors(priors, path)` and `load_priors(path)` for persistence
+- [x] `build_prior_prediction(grid, priors)` — apply priors to grid → H×W×6 tensor with floor + renormalize
+- [x] Proper probability floor maintenance (iterative clamp-and-redistribute)
+- [x] Type annotations, lint clean
+
+**Result**:
+- **What changed**: Created `src/prior_builder.py` (263 lines) with terrain priors, decay weighting, and prediction generation
+- **Metrics**: 13 tests passing for prior builder
+- **Tests**: tests/test_prior_builder.py covering uniform priors, normalization, floor enforcement, save/load roundtrip, and prediction tensor correctness
+
+---
+
+### T42: Settlement proximity features
+**Status**: done
+**Branch**: `core/T40-T42-data-collection-features`
+
+- [x] `compute_settlement_distance(grid)` — H×W Manhattan distance to nearest settlement/port via BFS
+- [x] `compute_coastal_mask(grid)` — H×W bool for land cells adjacent to ocean
+- [x] `compute_ocean_distance(grid)` — H×W distance to nearest ocean
+- [x] `compute_forest_density(grid)` — forest count within radius using summed area table
+- [x] `compute_feature_grid(grid)` — returns dict with all feature arrays
+- [x] All functions O(H×W)
+- [x] Type annotations, lint clean
+
+**Result**:
+- **What changed**: Created `src/features.py` (174 lines) with BFS distance fields, coastal detection, and forest density via SAT
+- **Metrics**: 15 tests passing for features
+- **Tests**: tests/test_features.py covering all 5 public functions with happy path, edge cases, and shape validation
