@@ -14,6 +14,7 @@ from src.constants import (
     PROBABILITY_FLOOR,
     STATIC_TERRAIN_CONFIDENCE,
 )
+from src.observation import ObservationStore
 from src.terrain import InternalTerrain
 
 
@@ -71,7 +72,7 @@ def apply_static_overrides(
 
 def blend_observations(
     tensor: np.ndarray,
-    obs_store: object,
+    obs_store: ObservationStore,
     seed_idx: int,
     max_weight: float,
     k: float = OBS_CONFIDENCE_K,
