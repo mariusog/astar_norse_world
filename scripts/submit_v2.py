@@ -78,8 +78,7 @@ def _load_survive_priors() -> np.ndarray:
     """Load survive-weighted (7, 6) terrain priors from historical data."""
     from src.unified_priors import build_unified_priors
 
-    priors, _dist = build_unified_priors("data/rounds")
-    return priors
+    return build_unified_priors("data/rounds")
 
 
 def _find_settlements(grid: np.ndarray) -> list[tuple[int, int]]:
