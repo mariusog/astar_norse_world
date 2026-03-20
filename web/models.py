@@ -88,6 +88,7 @@ from web.strategies import (  # noqa: E402
     predict_xgboost,
     predict_xgboost_collapse,
     predict_xgboost_survive,
+    register_generated_strategies,
 )
 
 register(
@@ -116,3 +117,9 @@ register(
     "XGBoost excluding survive rounds (1,2,5)",
     predict_xgboost_collapse,
 )
+
+# ---------------------------------------------------------------------------
+# Register parametric search strategies (50-80 auto-generated variants)
+# ---------------------------------------------------------------------------
+
+register_generated_strategies()

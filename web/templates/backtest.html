@@ -25,6 +25,64 @@
     </div>
 </div>
 
+<div class="card">
+    <h2>Automated Model Search</h2>
+    <p>Run all parametric transform variants (50+ strategies). Trains XGBoost once, then applies transforms.</p>
+    <div class="flex-row" style="margin-top: 1rem;">
+        <button class="btn btn-primary" id="search-btn" onclick="startSearch()">
+            Run Full Search
+        </button>
+        <span id="search-status" style="margin-left: 1rem;"></span>
+    </div>
+    <div id="search-progress" style="margin-top: 0.75rem; display: none;">
+        <div style="background: #2c3e50; border-radius: 4px; overflow: hidden; height: 24px;">
+            <div id="search-bar" style="background: #27ae60; height: 100%; width: 0%; transition: width 0.3s; line-height: 24px; text-align: center; color: white; font-size: 0.85rem;">
+                0 / 0
+            </div>
+        </div>
+        <div id="search-results-live" style="margin-top: 0.5rem; max-height: 200px; overflow-y: auto; font-size: 0.85rem;"></div>
+    </div>
+</div>
+
+<script>
+function startSearch() {
+    fetch('/research/api/search', {method: 'POST'})
+        .then(r => r.json())
+        .then(d => {
+            if (d.error) { document.getElementById('search-status').textContent = d.error; return; }
+            document.getElementById('search-btn').disabled = true;
+            document.getElementById('search-progress').style.display = 'block';
+            document.getElementById('search-status').textContent = 'Running...';
+            pollSearch();
+        });
+}
+function pollSearch() {
+    fetch('/research/api/search/status')
+        .then(r => r.json())
+        .then(d => {
+            var pct = d.total > 0 ? Math.round(100 * d.completed / d.total) : 0;
+            document.getElementById('search-bar').style.width = pct + '%';
+            document.getElementById('search-bar').textContent = d.completed + ' / ' + d.total;
+            if (d.results && d.results.length > 0) {
+                var sorted = d.results.slice().sort((a,b) => b.avg_score - a.avg_score);
+                var html = '<table><tr><th>#</th><th>Strategy</th><th>Score</th></tr>';
+                sorted.slice(0, 10).forEach((r, i) => {
+                    html += '<tr><td>' + (i+1) + '</td><td>' + r.strategy + '</td><td>' + r.avg_score + '</td></tr>';
+                });
+                html += '</table>';
+                document.getElementById('search-results-live').innerHTML = html;
+            }
+            if (d.running) {
+                setTimeout(pollSearch, 3000);
+            } else {
+                document.getElementById('search-btn').disabled = false;
+                document.getElementById('search-status').textContent = d.error ? 'Error: ' + d.error : 'Complete!';
+                if (!d.error) location.reload();
+            }
+        });
+}
+</script>
+
 <div id="bt-output">
     {% if leaderboard %}
     <div class="card">

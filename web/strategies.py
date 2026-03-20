@@ -1,8 +1,4 @@
-"""Strategy implementations for prediction models.
-
-Contains the actual predict_fn callables for each strategy.
-Imported by web.models for registration.
-"""
+"""Strategy implementations for prediction models."""
 
 from __future__ import annotations
 
@@ -21,10 +17,7 @@ logger = logging.getLogger(__name__)
 def load_round_data(
     round_dir: Path,
 ) -> list[tuple[np.ndarray, np.ndarray, list[dict]]]:
-    """Load all seeds from a round directory.
-
-    Returns list of (internal_grid, ground_truth, settlements) tuples.
-    """
+    """Load all seeds from a round directory."""
     rjson = round_dir / "round.json"
     if not rjson.exists():
         return []
@@ -287,3 +280,28 @@ def _predict_grid(
     preds = model.predict(np.array(X_pred))
     tensor = np.maximum(preds.reshape(h, w, NUM_PREDICTION_CLASSES), 0.0)
     return apply_static_and_normalize(tensor, grid)
+
+
+def register_generated_strategies() -> int:
+    """Register parametric search strategies with the model registry.
+
+    Returns:
+        Number of strategies registered.
+    """
+    from web.model_search import generate_search_strategies
+    from web.models import register
+    from web.transforms import apply_transform_chain, floor_and_normalize
+
+    def _make_predict(xforms: list) -> object:
+        def predict_fn(grid: np.ndarray, data_dir: str) -> np.ndarray:
+            base = predict_xgboost(grid, data_dir)
+            return floor_and_normalize(apply_transform_chain(base, grid, xforms))
+
+        return predict_fn
+
+    configs = generate_search_strategies()
+    for config in configs:
+        desc = f"XGBoost + {', '.join(t[0] for t in config.transforms)}"
+        register(config.name, desc, _make_predict(config.transforms))
+    logger.info("Registered %d generated strategies", len(configs))
+    return len(configs)
