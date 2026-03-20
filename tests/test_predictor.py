@@ -129,7 +129,11 @@ class TestBlendProbabilities:
         coverage = np.zeros((10, 10), dtype=bool)
         obs_counts = np.zeros((10, 10), dtype=np.int32)
         _blend_probabilities(
-            uniform_sim_probs, obs_probs, coverage, obs_counts, OBSERVATION_WEIGHT,
+            uniform_sim_probs,
+            obs_probs,
+            coverage,
+            obs_counts,
+            OBSERVATION_WEIGHT,
         )
         np.testing.assert_array_equal(uniform_sim_probs, original)
 

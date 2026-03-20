@@ -52,19 +52,28 @@ class TestRunSingleFromState:
 class TestRunMonteCarloFromState:
     def test_returns_probability_tensor(self) -> None:
         probs = run_monte_carlo_from_state(
-            _small_grid(), _settlements(), num_runs=5, base_sim_seed=0,
+            _small_grid(),
+            _settlements(),
+            num_runs=5,
+            base_sim_seed=0,
         )
         assert probs.shape == (5, 5, NUM_PREDICTION_CLASSES)
 
     def test_probabilities_sum_to_one(self) -> None:
         probs = run_monte_carlo_from_state(
-            _small_grid(), _settlements(), num_runs=5, base_sim_seed=0,
+            _small_grid(),
+            _settlements(),
+            num_runs=5,
+            base_sim_seed=0,
         )
         np.testing.assert_allclose(probs.sum(axis=2), 1.0, atol=1e-10)
 
     def test_probability_floor_applied(self) -> None:
         probs = run_monte_carlo_from_state(
-            _small_grid(), _settlements(), num_runs=5, base_sim_seed=0,
+            _small_grid(),
+            _settlements(),
+            num_runs=5,
+            base_sim_seed=0,
         )
         # After renormalization, values may be slightly below the floor
         assert probs.min() >= PROBABILITY_FLOOR * 0.9
