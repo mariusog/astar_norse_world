@@ -210,6 +210,74 @@ Create `src/features.py` (under 200 lines).
 
 ---
 
+### T200: Feature-based per-cell predictor
+**Status**: open
+**Branch**: `core/T200-feature-model`
+**Target**: +4 pts LOO on survive rounds over flat terrain priors
+
+Create `src/feature_predictor.py` (under 250 lines).
+
+**Context**: Our flat terrain priors score 71.2 LOO. A feature-based model using (terrain_type, distance_to_settlement, settlement_density) scored 79.8 on R1 in testing (+3.6). Top teams score 85+ — they likely use per-cell models.
+
+- [ ] `build_feature_lookup(data_dir) -> dict` — scan all rounds, for each cell collect features and GT class distribution
+  - Features per cell: `(terrain_type, distance_bin, settlement_density_bin)`
+  - `distance_bin`: 0,1,2,3,4,5,7,10,15+ (9 bins, matching DIST_BIN_EDGES)
+  - `settlement_density_bin`: count of settlement/port cells within radius 7 (use scipy.ndimage.uniform_filter), binned to 0,1,2,3,4,5+
+  - Value: averaged GT probability vector (shape 6)
+- [ ] `predict_from_features(grid, feature_lookup) -> np.ndarray` — for each cell, look up features → probability vector
+  - Fallback chain: if exact (terrain, dist, density) not found, try (terrain, dist, ANY), then (terrain, ANY, ANY)
+  - Static overrides: ocean → [1,0,0,0,0,0], mountain → [0,0,0,0,0,1]
+  - Floor + renormalize
+- [ ] Support regime-weighted building: accept optional `regime_weights: dict[int, float]` to weight rounds differently (survive rounds 2x for survive regime)
+- [ ] `save_feature_lookup()` / `load_feature_lookup()` for persistence
+- [ ] Type annotations, lint clean
+
+Use `scipy.ndimage.uniform_filter` for settlement density (already used in testing).
+
+**Acceptance criteria**: LOO backtest scores ≥75 avg across R1-R6. Survive rounds (R1,R2,R5,R6) score ≥78 avg.
+
+**Result**:
+
+---
+
+### T201: Regime-adaptive feature model
+**Status**: open
+**Branch**: `core/T201-regime-features`
+**Target**: Best-of-both-worlds: feature model for survive, flat for collapse
+**Depends on**: T200
+
+Update `src/adaptive_priors.py` or create new integration.
+
+- [ ] `build_regime_feature_lookup(data_dir, regime) -> dict` — build feature lookup using only rounds matching the regime
+  - survive: R1,R2,R5 (+ R6 for aggressive)
+  - collapse: R3,R4
+- [ ] Update `build_adaptive_priors()` to return feature lookup when regime is survive/aggressive, flat priors when collapse
+- [ ] Ensure `submit_v2.py` can use either flat priors or feature lookup seamlessly
+- [ ] LOO backtest: verify adaptive features beat both flat adaptive and non-adaptive features
+
+**Acceptance criteria**: LOO avg ≥77 across all 6 rounds.
+
+**Result**:
+
+---
+
+### T202: Wire feature model into submit_v2
+**Status**: open
+**Branch**: `core/T202-wire-features`
+**Target**: Complete pipeline using feature model
+**Depends on**: T200, T201
+
+- [ ] Update `_build_prediction()` in submit_v2 to use feature lookup instead of flat priors array
+- [ ] Keep two-phase flow: probe → detect regime → build regime-specific feature lookup → observe → blend → submit
+- [ ] Validate predictions pass all checks
+- [ ] Dry-run test on active round
+
+**Acceptance criteria**: Pipeline runs end-to-end, validator passes, dry-run succeeds.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.

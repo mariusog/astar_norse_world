@@ -222,6 +222,44 @@ Create `scripts/post_round.py` (under 200 lines).
 
 ---
 
+### T220: LOO backtest suite for feature model
+**Status**: open
+**Branch**: `qa/T220-feature-backtest`
+**Target**: Verify feature model doesn't overfit, strict LOO evaluation
+**Depends on**: T200
+
+Create `scripts/backtest_features.py` (under 200 lines).
+
+- [ ] For each of the 6 rounds: build feature lookup from OTHER 5 rounds, predict target round, score against GT
+- [ ] Compare to flat terrain priors baseline (71.2 avg)
+- [ ] Report per-round and avg scores in markdown table
+- [ ] Check for data leakage: ensure target round data is NEVER in training set
+- [ ] Flag if any round scores worse than flat priors (regression)
+- [ ] Output to `docs/feature_backtest.md`
+
+**Acceptance criteria**: Feature model LOO avg ≥75. No data leakage. Report generated.
+
+**Result**:
+
+---
+
+### T221: Observation blending regression test
+**Status**: open
+**Branch**: `qa/T221-obs-regression`
+**Target**: Verify observations always improve scores
+**Depends on**: T202
+
+- [ ] For each round: score with priors only, then with simulated 1/3/5 obs per cell
+- [ ] Verify observations NEVER make score worse (regression check)
+- [ ] If regression found, the blending weights need adjustment
+- [ ] Add to CI as a slow test
+
+**Acceptance criteria**: Observations improve or maintain score on every round at every density level.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.

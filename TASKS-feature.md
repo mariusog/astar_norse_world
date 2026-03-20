@@ -197,6 +197,49 @@ Add to the submission pipeline (under 100 lines of new code).
 
 ---
 
+### T210: XGBoost per-cell classifier
+**Status**: open
+**Branch**: `feature/T210-xgboost`
+**Target**: +2-5 pts over feature lookup model
+**Depends on**: T200
+
+Create `src/ml_predictor.py` (under 250 lines).
+
+**Context**: The feature lookup model uses exact (terrain, distance, density) keys. An ML model can generalize across unseen feature combinations and capture nonlinear interactions.
+
+- [ ] Build training dataset from all 6 rounds: each cell = one sample
+  - Features: terrain_type (one-hot 7), distance_to_settlement (int), settlement_density_7x7 (float), forest_density_7x7 (float), coastal (bool), ocean_distance (int), num_settlement_neighbors_r3 (int)
+  - Target: GT probability vector (6 classes)
+  - Use `MultiOutputRegressor(XGBRegressor())` or train 6 binary classifiers
+- [ ] LOO cross-validation: train on 5 rounds, predict 6th
+- [ ] `predict_grid(grid, model) -> np.ndarray` — predict H×W×6 from grid
+- [ ] Floor + renormalize predictions
+- [ ] Save/load trained model with joblib
+- [ ] Add `xgboost` and `scikit-learn` to dependencies
+
+**Acceptance criteria**: LOO avg ≥78 across 6 rounds. Better than feature lookup on ≥4/6 rounds.
+
+**Result**:
+
+---
+
+### T211: Local simulation calibration
+**Status**: open
+**Branch**: `feature/T211-sim-calibration`
+**Target**: Calibrate local sim constants to match server observations
+
+- [ ] Use observation data from historical rounds to identify which simulation constants differ from server
+- [ ] Key parameters to calibrate: GROWTH_RATE, RAID_RANGE, CONQUEST_PROB, EXPANSION_POPULATION_THRESHOLD, WINTER_SEVERITY_RANGE
+- [ ] Method: grid search over parameter combinations, score against GT on 1-2 rounds, validate on held-out rounds
+- [ ] If calibrated sim matches server: run 100+ MC sims per seed for per-cell probability estimates
+- [ ] This is a HIGH EFFORT task — only pursue if XGBoost doesn't reach 85+
+
+**Acceptance criteria**: Calibrated sim MC predictions score ≥80 LOO avg.
+
+**Result**:
+
+---
+
 ## Escalations
 
 Tasks that need lead-agent attention. Tag each as `BLOCKED` or `CRITICAL`.

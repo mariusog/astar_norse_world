@@ -17,13 +17,13 @@ Each task has: ID, status, agent, title, details, and optional dependencies.
 
 | ID | Agent | Title | Details | Depends on |
 |----|-------|-------|---------|------------|
-| T100 | core-agent | Integrate distance priors into submit_v2 | submit_v2.py uses flat priors; add distance_priors for +3-7 pts on survive rounds (R1: +3.7, R5: +7.5) | - |
-| T101 | core-agent | Fix submit_v2 observation blending to use ObservationStore correctly | Current submit_v2 feeds raw server codes into ObservationStore; verify the full pipeline from query→store→blend produces correct distributions | T100 |
-| T102 | core-agent | End-to-end pipeline test against historical data | Run submit_v2 in dry-run mode against each historical round, compare predicted score to actual; catch bugs like the uniform-priors disaster before submission | T101 |
-| T110 | feature-agent | Soft regime blending from post-observation data | After all 50 observations: count how many settlement cells still show settlement; compute survive_confidence; soft-blend priors for UNOBSERVED cells only | T101 |
-| T111 | feature-agent | Adaptive observation density | Settlement cells need more overlap (high entropy ~0.7); plains far from settlements need less (low entropy ~0.2); weight viewport placement by prior entropy | T100 |
-| T120 | qa-agent | Pre-submission validation | Before every submit, run a self-check: are priors non-uniform? Do predictions sum to 1? Is max_prob > 0.5 for static cells? Auto-abort if sanity checks fail | - |
-| T121 | qa-agent | Automated backtest in CI | Add backtest to CI pipeline; fail if avg score drops below 70 on historical rounds | T102 |
+| T200 | core-agent | Feature-based per-cell predictor | Build lookup from (terrain_type, distance, settlement_density) → probability vector using historical GT; replaces flat terrain priors; target: +4 pts on survive rounds in LOO backtest | - |
+| T201 | core-agent | Regime-adaptive feature model | Combine feature predictor with regime detection: use feature model for survive/aggressive, flat collapse priors for collapse; auto-select based on probe results | T200 |
+| T202 | core-agent | Wire feature model into submit_v2 | Replace `_build_adaptive_priors()` with feature model lookup; keep same two-phase pipeline (probe → adapt → observe → submit) | T200, T201 |
+| T210 | feature-agent | XGBoost per-cell classifier | Train XGBoost on per-cell features (terrain, distance, settlement density, forest density, coastal, neighbor types) → 6-class probability; use all 6 rounds as training data | T200 |
+| T211 | feature-agent | Local simulation calibration | Use observations to calibrate local sim parameters; run calibrated sim 100+ times for Monte Carlo probability estimates that match server dynamics | - |
+| T220 | qa-agent | LOO backtest suite for feature model | Strict leave-one-out backtest of feature model across all 6 rounds; verify no data leakage; compare to flat priors baseline; fail if avg < 75 | T200 |
+| T221 | qa-agent | Observation blending regression test | Verify observation blending improves score on every round; test with simulated GT-sampled observations at 1, 3, 5 obs/cell | T202 |
 
 ## In Progress
 
@@ -62,3 +62,8 @@ Each task has: ID, status, agent, title, details, and optional dependencies.
 | T80 | feature-agent | Clean submission script v2 | Completed -- scripts/submit_v2.py, no regime detection, survive priors + observations |
 | T90 | qa-agent | Backtest framework | Completed -- scripts/backtest.py, LOO/full modes, configurable obs density |
 | T91 | qa-agent | Post-round automation | Completed -- scripts/post_round.py, capture + backtest + commit |
+| T100 | core-agent | Distance priors in submit_v2 | Completed -- submit_v2 uses build_distance_priors, +1-8 pts |
+| T101 | core-agent | Observation blending pipeline test | Completed -- tests/test_submit_pipeline.py, 9 pipeline tests |
+| T102 | core-agent | Pre-submission validation | Completed -- src/prediction_validator.py with prior consistency + backtest checks |
+| T110 | feature-agent | Soft regime blending | Completed -- src/soft_regime.py, +7.8 on R3 |
+| T120 | qa-agent | Pre-submission validator | Completed -- 6 sanity checks, catches all 3 past failure modes |
