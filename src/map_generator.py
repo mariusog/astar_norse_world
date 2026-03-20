@@ -77,13 +77,13 @@ def _place_fjords(grid: np.ndarray, width: int, height: int, rng: np.random.Gene
         length = rng.integers(FJORD_LENGTH_RANGE[0], FJORD_LENGTH_RANGE[1] + 1)
 
         if edge == 0:
-            x, y, dx, dy = rng.integers(2, width - 2), 0, 0, 1
+            x, y, dx, dy = int(rng.integers(2, width - 2)), 0, 0, 1
         elif edge == 1:
-            x, y, dx, dy = rng.integers(2, width - 2), height - 1, 0, -1
+            x, y, dx, dy = int(rng.integers(2, width - 2)), height - 1, 0, -1
         elif edge == 2:
-            x, y, dx, dy = 0, rng.integers(2, height - 2), 1, 0
+            x, y, dx, dy = 0, int(rng.integers(2, height - 2)), 1, 0
         else:
-            x, y, dx, dy = width - 1, rng.integers(2, height - 2), -1, 0
+            x, y, dx, dy = width - 1, int(rng.integers(2, height - 2)), -1, 0
 
         for _step in range(length):
             if 0 <= y < height and 0 <= x < width:
@@ -93,23 +93,23 @@ def _place_fjords(grid: np.ndarray, width: int, height: int, rng: np.random.Gene
             # Slight random drift perpendicular to main direction
             if rng.random() < 0.3:
                 if dx == 0:
-                    x += rng.choice([-1, 1])
+                    x += int(rng.choice([-1, 1]))
                 else:
-                    y += rng.choice([-1, 1])
-            x = max(0, min(width - 1, x))
-            y = max(0, min(height - 1, y))
+                    y += int(rng.choice([-1, 1]))
+            x = int(max(0, min(width - 1, x)))
+            y = int(max(0, min(height - 1, y)))
 
 
 def _place_mountains(grid: np.ndarray, width: int, height: int, rng: np.random.Generator) -> None:
     """Place mountain chains via random walks."""
     for _ in range(NUM_MOUNTAIN_CHAINS):
-        x = rng.integers(3, width - 3)
-        y = rng.integers(3, height - 3)
-        dx, dy = rng.choice([-1, 0, 1]), rng.choice([-1, 0, 1])
+        x = int(rng.integers(3, width - 3))
+        y = int(rng.integers(3, height - 3))
+        dx, dy = int(rng.choice([-1, 0, 1])), int(rng.choice([-1, 0, 1]))
         if dx == 0 and dy == 0:
             dx = 1
 
-        length = rng.integers(MOUNTAIN_CHAIN_LENGTH_RANGE[0], MOUNTAIN_CHAIN_LENGTH_RANGE[1] + 1)
+        length = int(rng.integers(MOUNTAIN_CHAIN_LENGTH_RANGE[0], MOUNTAIN_CHAIN_LENGTH_RANGE[1] + 1))
 
         for _ in range(length):
             if (
@@ -121,20 +121,20 @@ def _place_mountains(grid: np.ndarray, width: int, height: int, rng: np.random.G
             y += dy
             # Random turn
             if rng.random() < MOUNTAIN_TURN_PROB:
-                dx = rng.choice([-1, 0, 1])
-                dy = rng.choice([-1, 0, 1])
+                dx = int(rng.choice([-1, 0, 1]))
+                dy = int(rng.choice([-1, 0, 1]))
                 if dx == 0 and dy == 0:
                     dx = 1
-            x = max(1, min(width - 2, x))
-            y = max(1, min(height - 2, y))
+            x = int(max(1, min(width - 2, x)))
+            y = int(max(1, min(height - 2, y)))
 
 
 def _place_forests(grid: np.ndarray, width: int, height: int, rng: np.random.Generator) -> None:
     """Place clustered forest patches."""
     for _ in range(NUM_FOREST_PATCHES):
-        cx = rng.integers(2, width - 2)
-        cy = rng.integers(2, height - 2)
-        size = rng.integers(FOREST_PATCH_SIZE_RANGE[0], FOREST_PATCH_SIZE_RANGE[1] + 1)
+        cx = int(rng.integers(2, width - 2))
+        cy = int(rng.integers(2, height - 2))
+        size = int(rng.integers(FOREST_PATCH_SIZE_RANGE[0], FOREST_PATCH_SIZE_RANGE[1] + 1))
 
         # BFS-like growth from center
         placed = 0
