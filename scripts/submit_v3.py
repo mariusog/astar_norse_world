@@ -455,7 +455,7 @@ def _build_prediction(
         pred = pred / pred.sum(axis=-1, keepdims=True)
 
     # Step 4: Equilibrium shift from observations (per-terrain aggregate)
-    pred = _equilibrium_shift(pred, grid, obs, si)
+    pred = _equilibrium_shift(pred, grid, obs, si, regime=regime)
 
     # Step 5: Regime-specific transforms
     pred = _apply_regime_transforms(pred, grid, regime)
@@ -463,12 +463,20 @@ def _build_prediction(
     return _floor_and_normalize(pred)
 
 
+_REGIME_EQ_WEIGHT: dict[str, float] = {
+    "survive": 0.3,
+    "aggressive": 0.5,
+    "deep_collapse": 0.4,
+    "partial_collapse": 0.3,
+}
+
+
 def _equilibrium_shift(
     pred: np.ndarray,
     grid: np.ndarray,
     obs: ObservationStore,
     si: int,
-    weight: float = 0.5,
+    regime: str = "survive",
 ) -> np.ndarray:
     """Shift predictions toward per-terrain marginals from observations.
 
@@ -476,6 +484,7 @@ def _equilibrium_shift(
     observed distribution per terrain type and shift ALL cells of that
     type toward it. This is the "Equilibrium Shift" technique.
     """
+    weight = _REGIME_EQ_WEIGHT.get(regime, 0.3)
     obs_probs = obs.get_observed_probs(si)
     mask = obs.get_coverage_mask(si) & ~np.isnan(obs_probs[:, :, 0])
     if not mask.any():
@@ -501,7 +510,7 @@ def _equilibrium_shift(
 # Regime-specific power transforms (from researcher optimization)
 # 1.0 = no power transform
 _REGIME_POWER: dict[str, float] = {
-    "survive": 0.9,
+    "survive": 0.95,  # 0.9 was too aggressive, lost 3+ pts on R16
     "aggressive": 1.0,  # no power — hurts aggressive (R12 LOO: 65 vs 69)
     "deep_collapse": 1.0,
     "partial_collapse": 1.05,
