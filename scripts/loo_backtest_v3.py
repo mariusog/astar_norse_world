@@ -35,15 +35,15 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "rounds"
 
 # Mirror from submit_v3
 _REGIME_INCLUDE: dict[str, set[int]] = {
-    "survive": {1, 2, 4, 5, 9},
-    "aggressive": {6, 7, 11, 12},
-    "deep_collapse": {3, 4, 8, 9, 10},
-    "partial_collapse": {1, 2, 4, 5, 9},
+    "survive": {1, 2, 4, 5, 9, 13, 14},
+    "aggressive": {6, 7, 11, 12, 15},
+    "deep_collapse": {3, 4, 8, 9, 10, 13},
+    "partial_collapse": {1, 2, 4, 5, 9, 13, 14},
 }
 
 _REGIME_ENSEMBLE: dict[str, float] = {
     "survive": 0.9,
-    "aggressive": 0.7,
+    "aggressive": 1.0,  # XGBoost only — ensemble hurts aggressive
     "deep_collapse": 0.7,
     "partial_collapse": 0.9,
 }
