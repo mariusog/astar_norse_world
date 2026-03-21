@@ -80,6 +80,34 @@ SERVER_TO_PRED_CLASS: dict[int, int] = {
 SERVER_CODE_DEFAULT = InternalTerrain.PLAINS
 
 
+def map_server_codes(grid_patch: np.ndarray) -> np.ndarray:
+    """Map raw server terrain codes to prediction class indices.
+
+    Server codes 0-5 map to prediction classes 0-5.
+    Server codes 10, 11 map to class 0 (Empty).
+
+    Args:
+        grid_patch: Array of server terrain codes.
+    Returns:
+        Array of prediction class indices (0-5).
+    Raises:
+        ValueError: If any code is not in SERVER_TO_PRED_CLASS.
+    """
+    max_code = max(SERVER_TO_PRED_CLASS) + 1
+    lookup = np.full(max_code, -1, dtype=np.int8)
+    for code, cls in SERVER_TO_PRED_CLASS.items():
+        lookup[code] = cls
+    flat = grid_patch.ravel()
+    if np.any((flat < 0) | (flat >= max_code)):
+        bad = flat[(flat < 0) | (flat >= max_code)]
+        raise ValueError(f"Server codes out of range: {bad}")
+    result = lookup[flat].reshape(grid_patch.shape)
+    if np.any(result < 0):
+        unmapped = flat[lookup[flat] < 0]
+        raise ValueError(f"Unmapped server codes: {np.unique(unmapped)}")
+    return result.astype(np.int8)
+
+
 def server_grid_to_internal(grid_data: list[list[int]]) -> np.ndarray:
     """Convert a server grid (list of lists) to InternalTerrain ndarray."""
     arr = np.array(grid_data, dtype=np.int32)

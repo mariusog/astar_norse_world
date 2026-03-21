@@ -13,16 +13,8 @@ from pathlib import Path
 import numpy as np
 
 from src.constants import LAPLACE_ALPHA, NUM_PREDICTION_CLASSES
-from src.terrain import SERVER_TO_PRED_CLASS
 
 logger = logging.getLogger(__name__)
-
-# Build a vectorized lookup array from SERVER_TO_PRED_CLASS dict.
-# Index by raw server code → prediction class (-1 for unmapped codes).
-_MAX_SERVER_CODE = max(SERVER_TO_PRED_CLASS) + 1
-_CODE_LOOKUP = np.full(_MAX_SERVER_CODE, -1, dtype=np.int8)
-for _code, _cls in SERVER_TO_PRED_CLASS.items():
-    _CODE_LOOKUP[_code] = _cls
 
 
 class ObservationStore:
@@ -61,10 +53,19 @@ class ObservationStore:
             seed_index: Which seed this observation is for.
             viewport_x: Left column of the viewport.
             viewport_y: Top row of the viewport.
-            grid_patch: 2D array of terrain codes, shape (vh, vw).
-                Accepts both server codes (0-5, 10, 11) and prediction
-                class indices (0-5). Server codes 10/11 map to class 0 (Empty).
+            grid_patch: 2D array of prediction class indices (0-5),
+                shape (vh, vw). Callers must map raw server codes
+                via ``terrain.map_server_codes`` before calling.
+
+        Raises:
+            ValueError: If grid_patch contains values outside [0, NUM_PREDICTION_CLASSES).
         """
+        if np.any((grid_patch < 0) | (grid_patch >= NUM_PREDICTION_CLASSES)):
+            bad = grid_patch[(grid_patch < 0) | (grid_patch >= NUM_PREDICTION_CLASSES)]
+            raise ValueError(
+                f"grid_patch must contain prediction class indices 0-{NUM_PREDICTION_CLASSES - 1}, "
+                f"got invalid values: {np.unique(bad)}"
+            )
         self._validate_seed(seed_index)
         self._ensure_seed(seed_index)
         vh, vw = grid_patch.shape
@@ -104,25 +105,16 @@ class ObservationStore:
             return
 
         # Slice the patch to the in-bounds region
-        patch = grid_patch[
+        classes = grid_patch[
             y_start - viewport_y : y_end - viewport_y,
             x_start - viewport_x : x_end - viewport_x,
         ].astype(np.int32)
 
-        # Map server codes → prediction classes via lookup array
-        safe = np.clip(patch, 0, _MAX_SERVER_CODE - 1)
-        classes = _CODE_LOOKUP[safe]
-
-        # Mask valid mapped codes (>= 0)
-        valid = classes >= 0
-        if not valid.any():
-            return
-
-        # Increment counts for each valid cell
-        rows, cols = np.where(valid)
+        # Increment counts for each cell (classes are pre-mapped prediction indices)
+        rows, cols = np.where(np.ones_like(classes, dtype=bool))
         gy = rows + y_start
         gx = cols + x_start
-        cls_vals = classes[valid]
+        cls_vals = classes[rows, cols]
         np.add.at(self._counts[seed_index], (gy, gx, cls_vals), 1)
         np.add.at(self._obs_counts[seed_index], (gy, gx), 1)
 

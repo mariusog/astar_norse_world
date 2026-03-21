@@ -40,6 +40,20 @@ def test_add_observation_updates_counts(store: ObservationStore) -> None:
     assert obs[0, 0] == 0
 
 
+def test_add_observation_rejects_invalid_class(store: ObservationStore) -> None:
+    """Passing a value outside 0-5 raises ValueError."""
+    patch = np.array([[7]])
+    with pytest.raises(ValueError, match="invalid values"):
+        store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=patch)
+
+
+def test_add_observation_rejects_server_code_10(store: ObservationStore) -> None:
+    """Raw server code 10 is no longer accepted -- must pre-map."""
+    patch = np.array([[10]])
+    with pytest.raises(ValueError, match="invalid values"):
+        store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=patch)
+
+
 def test_add_observation_out_of_bounds_ignored(store: ObservationStore) -> None:
     """Viewport extending beyond map edges is clipped."""
     patch = np.array([[0, 1], [2, 3]])  # 2x2

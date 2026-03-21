@@ -1,8 +1,16 @@
 """Tests for terrain types and grid utilities."""
 
 import numpy as np
+import pytest
 
-from src.terrain import InternalTerrain, Terrain, grid_to_prediction, neighbors_4, neighbors_8
+from src.terrain import (
+    InternalTerrain,
+    Terrain,
+    grid_to_prediction,
+    map_server_codes,
+    neighbors_4,
+    neighbors_8,
+)
 
 
 class TestTerrainMapping:
@@ -50,6 +58,46 @@ class TestNeighbors:
     def test_neighbors_8_corner(self) -> None:
         result = neighbors_8(0, 0, 10, 10)
         assert len(result) == 3
+
+
+class TestMapServerCodes:
+    def test_identity_0_through_5(self) -> None:
+        """Server codes 0-5 map to prediction classes 0-5."""
+        patch = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.int32)
+        result = map_server_codes(patch)
+        expected = np.array([[0, 1, 2], [3, 4, 5]], dtype=np.int8)
+        np.testing.assert_array_equal(result, expected)
+
+    def test_ocean_plains_map_to_empty(self) -> None:
+        """Server codes 10 (ocean) and 11 (plains) map to class 0."""
+        patch = np.array([[10, 11]], dtype=np.int32)
+        result = map_server_codes(patch)
+        np.testing.assert_array_equal(result, np.array([[0, 0]], dtype=np.int8))
+
+    def test_mixed_codes(self) -> None:
+        """Mixed server codes are mapped correctly."""
+        patch = np.array([[0, 10, 5], [11, 3, 1]], dtype=np.int32)
+        result = map_server_codes(patch)
+        expected = np.array([[0, 0, 5], [0, 3, 1]], dtype=np.int8)
+        np.testing.assert_array_equal(result, expected)
+
+    def test_invalid_code_raises(self) -> None:
+        """Unmapped code 7 raises ValueError."""
+        patch = np.array([[7]], dtype=np.int32)
+        with pytest.raises(ValueError, match="Unmapped server codes"):
+            map_server_codes(patch)
+
+    def test_negative_code_raises(self) -> None:
+        """Negative code raises ValueError."""
+        patch = np.array([[-1]], dtype=np.int32)
+        with pytest.raises(ValueError, match="out of range"):
+            map_server_codes(patch)
+
+    def test_out_of_range_code_raises(self) -> None:
+        """Code beyond max known server code raises ValueError."""
+        patch = np.array([[99]], dtype=np.int32)
+        with pytest.raises(ValueError, match="out of range"):
+            map_server_codes(patch)
 
 
 class TestGridToPrediction:

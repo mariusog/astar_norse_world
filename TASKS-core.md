@@ -150,6 +150,7 @@ Create `src/features.py` (under 200 lines).
 
 ---
 
+<<<<<<< HEAD
 ### T70: Unified survive-weighted prior builder
 **Status**: done
 **Branch**: `triple-agent-solution`
@@ -275,6 +276,26 @@ Update `src/adaptive_priors.py` or create new integration.
 **Acceptance criteria**: Pipeline runs end-to-end, validator passes, dry-run succeeds.
 
 **Result**:
+
+---
+
+### T403: Explicit observation terrain mapping
+**Status**: done
+**Branch**: `historical-training-model`
+
+- [x] Add `map_server_codes()` to `src/terrain.py` as single mapping point
+- [x] Remove `SERVER_TO_PRED_CLASS` import and `_CODE_LOOKUP` from `src/observation.py`
+- [x] Remove server-code mapping from `_accumulate_patch()`, expect prediction classes only
+- [x] Add input validation in `add_observation()` (reject values outside 0-5)
+- [x] Update `src/pipeline.py` to call `map_server_codes()` before `add_observation()`
+- [x] Add validation tests to `tests/test_observation.py`
+- [x] Add `map_server_codes` tests to `tests/test_terrain.py`
+- [x] All tests pass, lint clean
+
+**Result**:
+- **What changed**: Extracted server-code mapping from ObservationStore into explicit `map_server_codes()` in terrain.py; callers now map before calling `add_observation()`
+- **Metrics**: observation.py has zero imports from src.terrain; mapping is explicit at call site
+- **Tests**: New tests for map_server_codes and add_observation validation, full suite green
 
 ---
 

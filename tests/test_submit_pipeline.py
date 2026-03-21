@@ -76,9 +76,11 @@ class TestObservationBlending:
             assert SERVER_TO_PRED_CLASS[code] == cls
 
     def test_observation_store_with_server_codes(self) -> None:
-        """ObservationStore correctly accumulates server terrain codes."""
+        """ObservationStore correctly accumulates mapped server terrain codes."""
+        from src.terrain import map_server_codes
+
         store = ObservationStore(height=10, width=10, num_seeds=1)
-        patch = _make_server_patch()
+        patch = map_server_codes(_make_server_patch())
         store.add_observation(0, 1, 1, patch)
 
         probs = store.get_observed_probs(0)
