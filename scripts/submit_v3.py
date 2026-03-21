@@ -34,7 +34,7 @@ from src.ml_predictor import build_training_data, predict_grid, train_model
 from src.observation import ObservationStore
 from src.prediction_validator import validate_predictions
 from src.state_loader import load_round
-from src.terrain import InternalTerrain
+from src.terrain import InternalTerrain, map_server_codes
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)
@@ -271,7 +271,8 @@ def _probe_seed(
     vy = max(0, min(cy - _VP_SIZE // 2, h - _VP_SIZE))
     try:
         res = client.query(rid, si, vx, vy, _VP_SIZE, _VP_SIZE)
-        obs.add_observation(si, vx, vy, np.array(res["grid"], dtype=np.int32))
+        raw = np.array(res["grid"], dtype=np.int32)
+        obs.add_observation(si, vx, vy, map_server_codes(raw))
         time.sleep(_QUERY_DELAY)
         return True
     except APIError as e:
@@ -377,7 +378,7 @@ def _run_observations(
                 continue
             try:
                 res = client.query(round_id, si, vp["x"], vp["y"], vp["w"], vp["h"])
-                patch = np.array(res["grid"], dtype=np.int32)
+                patch = map_server_codes(np.array(res["grid"], dtype=np.int32))
                 obs.add_observation(si, vp["x"], vp["y"], patch)
                 total += 1
                 time.sleep(_QUERY_DELAY)
