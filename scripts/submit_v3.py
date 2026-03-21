@@ -24,6 +24,9 @@ from src.api_client import APIError, AstarClient
 from src.constants import (
     DEFAULT_MAP_HEIGHT,
     DEFAULT_MAP_WIDTH,
+    NUM_INTERNAL_TYPES,
+    NUM_PREDICTION_CLASSES,
+    NUM_SEEDS,
     PROBABILITY_FLOOR,
     TOTAL_QUERY_BUDGET,
 )
@@ -44,6 +47,7 @@ _COLLAPSE_THRESHOLD = 0.05
 _AGGRESSIVE_THRESHOLD = 0.35
 _MAX_OBS_WEIGHT = 0.8
 _MIN_PROBES_FOR_REGIME = 3  # need at least 3 observed settlements to classify
+_SURVIVAL_PROB_THRESHOLD = 0.3  # settlement+port prob above this = survived
 
 
 def main() -> None:
@@ -146,8 +150,8 @@ def _build_flat_priors(regime: str = "survive") -> np.ndarray:
     import json
 
     include = _REGIME_INCLUDE.get(regime)
-    accum = np.zeros((7, 6))
-    count = np.zeros(7)
+    accum = np.zeros((NUM_INTERNAL_TYPES, NUM_PREDICTION_CLASSES))
+    count = np.zeros(NUM_INTERNAL_TYPES)
     for rd in sorted(Path(_DATA_DIR).iterdir()):
         if not rd.is_dir():
             continue
@@ -156,20 +160,20 @@ def _build_flat_priors(regime: str = "survive") -> np.ndarray:
             rnum = json.loads(rj.read_text()).get("round_number", 0)
             if rnum not in include:
                 continue
-        for i in range(5):
+        for i in range(NUM_SEEDS):
             gt_p = rd / f"seed_{i}" / "ground_truth.npy"
             gr_p = rd / f"seed_{i}" / "initial_grid.npy"
             if not gt_p.exists() or not gr_p.exists():
                 continue
             gt, gr = np.load(gt_p), np.load(gr_p)
-            for t in range(7):
+            for t in range(NUM_INTERNAL_TYPES):
                 mask = gr == t
                 if mask.sum() > 0:
                     accum[t] += gt[mask].sum(axis=0)
                     count[t] += mask.sum()
-    priors = np.zeros((7, 6))
-    for t in range(7):
-        priors[t] = accum[t] / count[t] if count[t] > 0 else 1 / 6
+    priors = np.zeros((NUM_INTERNAL_TYPES, NUM_PREDICTION_CLASSES))
+    for t in range(NUM_INTERNAL_TYPES):
+        priors[t] = accum[t] / count[t] if count[t] > 0 else 1 / NUM_PREDICTION_CLASSES
     return priors
 
 
@@ -302,7 +306,7 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
             probs = obs_probs[y, x]
             if not np.isnan(probs[0]):
                 checked += 1
-                if (probs[1] + probs[2]) > 0.3:
+                if (probs[1] + probs[2]) > _SURVIVAL_PROB_THRESHOLD:
                     survived += 1
     return checked, survived
 
@@ -462,7 +466,7 @@ def _equilibrium_shift(
         return pred
 
     result = pred.copy()
-    for t in range(7):
+    for t in range(NUM_INTERNAL_TYPES):
         terrain_mask = (grid == t) & mask
         if terrain_mask.sum() < 3:
             continue

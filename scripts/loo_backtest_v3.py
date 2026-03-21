@@ -175,10 +175,7 @@ def run_loo_backtest() -> None:
 
         # Build exclude set: all rounds not in regime include + target
         include = _REGIME_INCLUDE.get(regime)
-        if include:
-            exclude = (set(range(1, 100)) - include) | {rn}
-        else:
-            exclude = {rn}
+        exclude = (set(range(1, 100)) - include) | {rn} if include else {rn}
 
         x, y = build_training_data(str(DATA_DIR), exclude_round_numbers=exclude)
         if len(x) == 0:
