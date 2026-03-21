@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from src.constants import NUM_PREDICTION_CLASSES
-from src.position_priors import (
+from src._legacy.position_priors import (
     SettlementDistanceModel,
     _apply_flat_priors,
     _compute_distances_from_positions,
@@ -255,7 +255,7 @@ def test_predict_from_position_zero_weight_is_flat(
 @pytest.mark.slow()
 def test_build_distance_model_from_round_data() -> None:
     """Integration test: build distance model from actual data."""
-    from src.position_priors import build_distance_model
+    from src._legacy.position_priors import build_distance_model
 
     model = build_distance_model("data/rounds")
     assert len(model._profiles) > 0

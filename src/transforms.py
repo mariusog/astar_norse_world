@@ -270,3 +270,31 @@ def _floor_and_normalize(tensor: np.ndarray) -> np.ndarray:
 def _server_grid_to_internal(grid_raw: np.ndarray) -> np.ndarray:
     """Convert server grid codes to InternalTerrain values."""
     return np.vectorize(lambda v: SERVER_TO_INTERNAL.get(v, 1))(grid_raw).astype(np.int8)
+
+
+def apply_floor_to_row(row: np.ndarray) -> np.ndarray:
+    """Apply probability floor to a single distribution row.
+
+    Clamps values below floor and redistributes the deficit
+    proportionally from above-floor values.
+    """
+    n = len(row)
+    floor = PROBABILITY_FLOOR
+    result = row.copy()
+
+    for _ in range(n):
+        below = result < floor
+        if not below.any():
+            break
+        deficit = (floor - result[below]).sum()
+        result[below] = floor
+        above = ~below
+        above_sum = result[above].sum()
+        if above_sum > deficit:
+            result[above] -= deficit * (result[above] / above_sum)
+        else:
+            result[:] = 1.0 / n
+            break
+
+    result /= result.sum()
+    return result

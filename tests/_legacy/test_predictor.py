@@ -12,7 +12,7 @@ from src.constants import (
     STATIC_TERRAIN_CONFIDENCE,
 )
 from src.observation import ObservationStore
-from src.predictor import (
+from src._legacy.predictor import (
     Predictor,
     _apply_floor_and_normalize,
     _apply_static_terrain,

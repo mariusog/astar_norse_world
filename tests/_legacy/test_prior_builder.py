@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from src.constants import NUM_PREDICTION_CLASSES, PROBABILITY_FLOOR
-from src.prior_builder import (
+from src._legacy.prior_builder import (
     NUM_INTERNAL_TYPES,
     _compute_round_weight,
     _normalize_priors,

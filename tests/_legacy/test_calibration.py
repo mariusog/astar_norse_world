@@ -8,7 +8,7 @@ import tempfile
 import numpy as np
 import pytest
 
-from src.calibration import (
+from src._legacy.calibration import (
     calibrate_weights,
     compute_divergence,
     detect_biases,

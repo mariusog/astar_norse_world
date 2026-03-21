@@ -24,7 +24,7 @@ from src.constants import (
     SURVIVE_WEIGHT,
 )
 from src.features import compute_settlement_distance
-from src.prior_builder import _apply_floor_to_row
+from src.transforms import apply_floor_to_row
 from src.terrain import InternalTerrain
 
 logger = logging.getLogger(__name__)
@@ -211,7 +211,7 @@ def _apply_floor(pred: np.ndarray) -> None:
     c = pred.shape[2]
     flat = pred.reshape(-1, c)
     for i in range(flat.shape[0]):
-        flat[i] = _apply_floor_to_row(flat[i])
+        flat[i] = apply_floor_to_row(flat[i])
 
 
 # -- Normalization ----------------------------------------------------------

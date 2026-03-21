@@ -15,8 +15,8 @@ from typing import Any
 
 import numpy as np
 
-from src.constants import NUM_PREDICTION_CLASSES
-from src.prior_builder import NUM_INTERNAL_TYPES, _apply_floor_to_row
+from src.constants import NUM_INTERNAL_TYPES, NUM_PREDICTION_CLASSES
+from src.transforms import apply_floor_to_row
 from src.scoring import score_prediction
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -114,7 +114,7 @@ def _normalize_counts(
     for i in range(NUM_INTERNAL_TYPES):
         if totals[i] > 0:
             priors[i] = counts[i] / totals[i]
-        priors[i] = _apply_floor_to_row(priors[i])
+        priors[i] = apply_floor_to_row(priors[i])
     return priors
 
 
