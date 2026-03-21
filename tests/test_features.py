@@ -132,6 +132,7 @@ class TestComputeFeatureGrid:
         features = compute_feature_grid(simple_grid)
         expected_keys = {
             "settlement_dist",
+            "settlement_density",
             "coastal_mask",
             "ocean_dist",
             "forest_density",

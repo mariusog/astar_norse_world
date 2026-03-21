@@ -14,7 +14,6 @@ from src.constants import (
 from src.feature_predictor import (
     FeatureLookup,
     _apply_static_overrides,
-    _compute_density_map,
     _digitize_density,
     _digitize_distances,
     _floor_and_normalize,
@@ -22,6 +21,7 @@ from src.feature_predictor import (
     build_feature_lookup,
     predict_from_features,
 )
+from src.features import compute_settlement_density
 from src.terrain import InternalTerrain
 
 
@@ -73,14 +73,14 @@ class TestComputeDensityMap:
 
     def test_empty_grid_zero_density(self) -> None:
         grid = np.full((10, 10), InternalTerrain.PLAINS, dtype=np.int8)
-        density = _compute_density_map(grid)
+        density = compute_settlement_density(grid)
         assert density.shape == (10, 10)
         assert np.all(density == 0)
 
     def test_single_settlement_nonzero_density(self) -> None:
         grid = np.full((15, 15), InternalTerrain.PLAINS, dtype=np.int8)
         grid[7, 7] = InternalTerrain.SETTLEMENT
-        density = _compute_density_map(grid)
+        density = compute_settlement_density(grid)
         # Cell at (7,7) is fully inside filter window, density >= 1
         assert density[7, 7] >= 1
         assert density[0, 0] == 0  # far corner
@@ -88,7 +88,7 @@ class TestComputeDensityMap:
     def test_port_counted_as_settlement(self) -> None:
         grid = np.full((15, 15), InternalTerrain.PLAINS, dtype=np.int8)
         grid[7, 7] = InternalTerrain.PORT
-        density = _compute_density_map(grid)
+        density = compute_settlement_density(grid)
         assert density[7, 7] >= 1
 
 

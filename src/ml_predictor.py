@@ -22,6 +22,7 @@ from src.constants import (
 from src.features import (
     compute_coastal_mask,
     compute_ocean_distance,
+    compute_settlement_density,
     compute_settlement_distance,
 )
 from src.terrain import InternalTerrain
@@ -45,10 +46,17 @@ def extract_cell_features(grid: np.ndarray) -> np.ndarray:
     is_coastal, ocean_dist.
     """
     terrain_onehot = _compute_terrain_onehot(grid)
-    scalar_feats = _compute_scalar_features(grid)
+    settle_dist = compute_settlement_distance(grid).ravel()
+    settle_dens = compute_settlement_density(grid, window=ML_DENSITY_KERNEL).ravel()
+    forest_mask = (grid == InternalTerrain.FOREST).astype(np.float64)
+    forest_dens = uniform_filter(forest_mask, ML_DENSITY_KERNEL).ravel()
+    coastal = compute_coastal_mask(grid).ravel().astype(np.float32)
+    ocean_dist = compute_ocean_distance(grid).ravel()
 
-    features = np.concatenate([terrain_onehot, scalar_feats], axis=1)
-    return features.astype(np.float32)
+    scalars = np.column_stack(
+        [settle_dist, settle_dens, forest_dens, coastal, ocean_dist]
+    ).astype(np.float32)
+    return np.concatenate([terrain_onehot, scalars], axis=1).astype(np.float32)
 
 
 def _compute_terrain_onehot(grid: np.ndarray) -> np.ndarray:
@@ -58,33 +66,6 @@ def _compute_terrain_onehot(grid: np.ndarray) -> np.ndarray:
     valid = (flat >= 0) & (flat < NUM_TERRAIN_TYPES)
     onehot[valid, flat[valid]] = 1.0
     return onehot
-
-
-def _compute_scalar_features(grid: np.ndarray) -> np.ndarray:
-    """Compute 5 scalar spatial features, flattened to (H*W, 5)."""
-    settle_dist = compute_settlement_distance(grid).ravel()
-    settle_mask = _settlement_mask(grid).astype(np.float64)
-    settle_dens = uniform_filter(settle_mask, ML_DENSITY_KERNEL).ravel()
-    forest_mask = (grid == InternalTerrain.FOREST).astype(np.float64)
-    forest_dens = uniform_filter(forest_mask, ML_DENSITY_KERNEL).ravel()
-    coastal = compute_coastal_mask(grid).ravel().astype(np.float32)
-    ocean_dist = compute_ocean_distance(grid).ravel()
-
-    scalars = np.column_stack(
-        [
-            settle_dist,
-            settle_dens,
-            forest_dens,
-            coastal,
-            ocean_dist,
-        ]
-    )
-    return scalars.astype(np.float32)
-
-
-def _settlement_mask(grid: np.ndarray) -> np.ndarray:
-    """Boolean mask of settlement and port cells."""
-    return np.isin(grid, [InternalTerrain.SETTLEMENT, InternalTerrain.PORT])
 
 
 def build_training_data(

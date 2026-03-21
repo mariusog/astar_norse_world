@@ -11,7 +11,6 @@ import logging
 from pathlib import Path
 
 import numpy as np
-from scipy.ndimage import uniform_filter
 
 from src.constants import (
     DIST_BIN_EDGES,
@@ -20,7 +19,7 @@ from src.constants import (
     SETTLEMENT_DENSITY_MAX_BIN,
     SETTLEMENT_DENSITY_WINDOW,
 )
-from src.features import compute_settlement_distance
+from src.features import compute_settlement_density, compute_settlement_distance
 from src.terrain import InternalTerrain
 
 logger = logging.getLogger(__name__)
@@ -70,7 +69,7 @@ def predict_from_features(
     """
     height, width = grid.shape
     dist_map = compute_settlement_distance(grid)
-    density_map = _compute_density_map(grid)
+    density_map = compute_settlement_density(grid, window=SETTLEMENT_DENSITY_WINDOW)
     dist_bins = _digitize_distances(dist_map)
     density_bins = _digitize_density(density_map)
     tensor = np.full(
@@ -118,25 +117,11 @@ def _process_seed(
     gt = np.load(gt_path)
     grid = np.load(ig_path)
     dist_map = compute_settlement_distance(grid)
-    density_map = _compute_density_map(grid)
+    density_map = compute_settlement_density(grid, window=SETTLEMENT_DENSITY_WINDOW)
     dist_bins = _digitize_distances(dist_map)
     density_bins = _digitize_density(density_map)
     _accumulate(grid, gt, dist_bins, density_bins, weight, accum)
 
-
-def _compute_density_map(grid: np.ndarray) -> np.ndarray:
-    """Count settlement/port cells in a window around each cell."""
-    settlement_mask = (
-        (grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)
-    ).astype(np.float64)
-    raw = uniform_filter(
-        settlement_mask,
-        size=SETTLEMENT_DENSITY_WINDOW,
-        mode="constant",
-        cval=0.0,
-    )
-    window_area = SETTLEMENT_DENSITY_WINDOW**2
-    return np.round(raw * window_area).astype(np.int32)
 
 
 def _digitize_distances(dist_map: np.ndarray) -> np.ndarray:
