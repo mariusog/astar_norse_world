@@ -102,16 +102,16 @@ def _build_flat_priors(regime: str = "survive") -> np.ndarray:
     """
     import json
 
-    exclude = _REGIME_EXCLUDE.get(regime, set())
+    include = _REGIME_INCLUDE.get(regime)
     accum = np.zeros((7, 6))
     count = np.zeros(7)
     for rd in sorted(Path(_DATA_DIR).iterdir()):
         if not rd.is_dir():
             continue
         rj = rd / "round.json"
-        if rj.exists():
+        if rj.exists() and include:
             rnum = json.loads(rj.read_text()).get("round_number", 0)
-            if rnum in exclude:
+            if rnum not in include:
                 continue
         for i in range(5):
             gt_p = rd / f"seed_{i}" / "ground_truth.npy"
@@ -249,18 +249,34 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
 
 # -- Model training -----------------------------------------------------------
 
-_REGIME_EXCLUDE: dict[str, set[int]] = {
-    "survive": {3, 8},  # exclude deep collapse only
-    "aggressive": {3, 8},  # exclude deep collapse only
-    "deep_collapse": {1, 2, 5, 6, 7},  # only collapse rounds
-    "partial_collapse": {3, 8, 6, 7},  # exclude deep collapse + aggressive
+# Regime-specific training: include ONLY matching rounds
+_REGIME_INCLUDE: dict[str, set[int]] = {
+    "survive": {1, 2, 4, 5, 9},  # survive + partial_collapse (have settlements)
+    "aggressive": {6, 7},  # aggressive only
+    "deep_collapse": {3, 4, 8, 9, 10},  # all collapse rounds
+    "partial_collapse": {1, 2, 4, 5, 9},  # similar to survive
+}
+
+# Per-regime ensemble weights (XGBoost vs flat priors)
+_REGIME_ENSEMBLE: dict[str, float] = {
+    "survive": 0.9,  # trust XGBoost heavily
+    "aggressive": 0.4,  # trust flat priors more (few training rounds)
+    "deep_collapse": 0.7,  # moderate XGBoost trust
+    "partial_collapse": 0.9,  # trust XGBoost heavily
 }
 
 
 def _train_regime_model(regime: str) -> Any:
-    """Train XGBoost excluding rounds that don't match the detected regime."""
-    exclude = _REGIME_EXCLUDE.get(regime, set())
-    x, y = build_training_data(_DATA_DIR, exclude_round_numbers=exclude or None)
+    """Train XGBoost on regime-specific rounds only."""
+    include = _REGIME_INCLUDE.get(regime)
+    if include:
+        exclude = set(range(1, 100)) - include
+        x, y = build_training_data(_DATA_DIR, exclude_round_numbers=exclude)
+    else:
+        x, y = build_training_data(_DATA_DIR)
+    if len(x) == 0:
+        logger.warning("No training data for regime=%s, using all rounds", regime)
+        x, y = build_training_data(_DATA_DIR)
     model = train_model(x, y, seed=42)
     logger.info("Trained XGBoost on regime=%s (%d samples)", regime, len(x))
     return model
@@ -340,7 +356,7 @@ def _build_prediction(
     # Step 1: XGBoost prediction
     pred = predict_grid(grid, model)
 
-    # Step 2: Ensemble with flat priors (0.6/0.4 blend smooths overconfidence)
+    # Step 2: Regime-specific ensemble with flat priors
     if flat_priors is not None:
         gi = np.clip(grid.astype(np.int32), 0, flat_priors.shape[0] - 1)
         fp = flat_priors[gi].copy()
@@ -348,7 +364,8 @@ def _build_prediction(
         fp[grid == InternalTerrain.MOUNTAIN] = [0, 0, 0, 0, 0, 1]
         fp = np.maximum(fp, PROBABILITY_FLOOR)
         fp = fp / fp.sum(axis=2, keepdims=True)
-        pred = 0.6 * pred + 0.4 * fp
+        w_xgb = _REGIME_ENSEMBLE.get(regime, 0.7)
+        pred = w_xgb * pred + (1 - w_xgb) * fp
 
     # Step 3: Regime-specific power transform
     power = _REGIME_POWER.get(regime, 0.9)
