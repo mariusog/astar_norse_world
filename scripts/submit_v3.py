@@ -418,10 +418,10 @@ def _equilibrium_shift(
 
 # Regime-specific power transforms (from researcher optimization)
 _REGIME_POWER: dict[str, float] = {
-    "survive": 0.8,
-    "aggressive": 0.6,
+    "survive": 0.9,
+    "aggressive": 0.8,
     "deep_collapse": 1.0,
-    "partial_collapse": 0.9,
+    "partial_collapse": 1.05,
 }
 
 # Regime-specific post-processing chains
