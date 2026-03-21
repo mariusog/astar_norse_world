@@ -139,17 +139,29 @@ def _collect_seed_data(
     # Fetch and save ground truth from analysis endpoint
     try:
         analysis = client.analysis(round_id, seed_idx)
-        gt_grid = _parse_server_grid(analysis.get("grid", []))
-        np.save(seed_dir / "ground_truth.npy", gt_grid)
+
+        # Ground truth is HxWx6 probability distributions
+        gt_raw = analysis.get("ground_truth", [])
+        if gt_raw and isinstance(gt_raw[0], list) and isinstance(gt_raw[0][0], list):
+            gt_array = np.array(gt_raw, dtype=np.float64)
+        else:
+            gt_array = np.array([], dtype=np.float64)
+        np.save(seed_dir / "ground_truth.npy", gt_array)
+
+        # Also save the initial grid from analysis (server terrain codes)
+        ig_raw = analysis.get("initial_grid", [])
+        if ig_raw:
+            ig_array = server_grid_to_internal(ig_raw)
+            np.save(seed_dir / "initial_grid.npy", ig_array)
 
         meta = {
             "round_id": round_id,
             "seed_index": seed_idx,
-            "height": gt_grid.shape[0],
-            "width": gt_grid.shape[1],
+            "height": gt_array.shape[0] if gt_array.ndim >= 2 else 0,
+            "width": gt_array.shape[1] if gt_array.ndim >= 2 else 0,
         }
         _save_json(seed_dir / "analysis_meta.json", meta)
-        logger.info("  Seed %d: saved GT %s", seed_idx, gt_grid.shape)
+        logger.info("  Seed %d: saved GT %s", seed_idx, gt_array.shape)
     except Exception:
         logger.exception("  Seed %d: failed to fetch analysis", seed_idx)
 
