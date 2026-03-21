@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from src.constants import (
     BASE_FOOD_PRODUCTION,
@@ -94,3 +94,7 @@ class Settlement:
     def reset_yearly(self) -> None:
         """Reset per-year accumulators."""
         self.raid_damage = 0
+
+    def copy(self) -> Settlement:
+        """Return an independent copy of this settlement."""
+        return replace(self)
