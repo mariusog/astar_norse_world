@@ -339,13 +339,20 @@ _REGIME_ENSEMBLE: dict[str, float] = {
 
 
 def _train_regime_model(regime: str) -> Any:
-    """Train XGBoost on regime-specific rounds only."""
-    include = _REGIME_INCLUDE.get(regime)
-    if include:
-        exclude = set(range(1, 100)) - include
-        x, y = build_training_data(_DATA_DIR, exclude_round_numbers=exclude)
-    else:
+    """Train XGBoost on regime-specific or all rounds.
+
+    Survive/partial_collapse use all data (more samples helps, +1-2 pts).
+    Aggressive/deep_collapse use regime-specific (mixing hurts badly).
+    """
+    if regime in ("survive", "partial_collapse"):
         x, y = build_training_data(_DATA_DIR)
+    else:
+        include = _REGIME_INCLUDE.get(regime)
+        if include:
+            exclude = set(range(1, 100)) - include
+            x, y = build_training_data(_DATA_DIR, exclude_round_numbers=exclude)
+        else:
+            x, y = build_training_data(_DATA_DIR)
     if len(x) == 0:
         logger.warning("No training data for regime=%s, using all rounds", regime)
         x, y = build_training_data(_DATA_DIR)
