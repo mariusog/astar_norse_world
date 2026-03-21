@@ -205,13 +205,23 @@ class ObservationStore:
         meta = data["_meta"]
         height, width, num_seeds = int(meta[0]), int(meta[1]), int(meta[2])
         store = cls(height, width, num_seeds)
+        expected_counts = (height, width, NUM_PREDICTION_CLASSES)
+        expected_obs = (height, width)
         for key in data.files:
             if key.startswith("counts_"):
                 si = int(key.split("_", 1)[1])
-                store._counts[si] = data[key]
+                arr = data[key]
+                if arr.shape != expected_counts:
+                    msg = f"counts shape {arr.shape} != expected {expected_counts}"
+                    raise ValueError(msg)
+                store._counts[si] = arr
             elif key.startswith("obs_"):
                 si = int(key.split("_", 1)[1])
-                store._obs_counts[si] = data[key]
+                arr = data[key]
+                if arr.shape != expected_obs:
+                    msg = f"obs shape {arr.shape} != expected {expected_obs}"
+                    raise ValueError(msg)
+                store._obs_counts[si] = arr
         logger.info("Loaded observations from %s (%d seeds)", path, len(store._counts))
         return store
 

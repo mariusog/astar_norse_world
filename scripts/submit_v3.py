@@ -45,7 +45,6 @@ _DATA_DIR = "data/rounds"
 _OBS_CACHE_DIR = "data/obs_cache"
 _COLLAPSE_THRESHOLD = 0.05
 _AGGRESSIVE_THRESHOLD = 0.35
-_MAX_OBS_WEIGHT = 0.8
 _MIN_PROBES_FOR_REGIME = 3  # need at least 3 observed settlements to classify
 _SURVIVAL_PROB_THRESHOLD = 0.3  # settlement+port prob above this = survived
 
@@ -84,7 +83,7 @@ def main() -> None:
     flat_priors = _build_flat_priors(regime)
 
     # Phase 2: Observation queries
-    obs_budget = args.budget - probe_used
+    obs_budget = max(0, args.budget - probe_used)
     _run_observations(client, round_id, states, obs, obs_budget, w, h, args.dry_run)
 
     # Persist observations for potential re-runs
@@ -506,37 +505,6 @@ def _apply_regime_transforms(pred: np.ndarray, grid: np.ndarray, regime: str) ->
 
     transforms = _REGIME_TRANSFORMS.get(regime, _REGIME_TRANSFORMS["survive"])
     return apply_transform_chain(pred, grid, transforms)
-
-
-def _calibrate_from_observations(
-    tensor: np.ndarray,
-    obs: ObservationStore,
-    si: int,
-) -> np.ndarray:
-    """Calibrate predictions from observations with adaptive K.
-
-    Adaptive K: more observations = more trust in server data.
-    - 1 obs: K=3, weight=0.21 (cautious — single obs is noisy)
-    - 2 obs: K=2, weight=0.44
-    - 3+ obs: K=1, weight=0.71 (aggressive — multiple obs reliable)
-    """
-    obs_probs = obs.get_observed_probs(si)
-    mask = obs.get_coverage_mask(si) & ~np.isnan(obs_probs[:, :, 0])
-    if not mask.any():
-        return tensor
-    result = tensor.copy()
-    counts = obs.observation_count(si)[mask].astype(np.float64)
-    k = np.maximum(1.0, 4.0 - counts)
-    w = (_MAX_OBS_WEIGHT * counts / (counts + k))[:, np.newaxis]
-    result[mask] = w * obs_probs[mask] + (1.0 - w) * tensor[mask]
-    logger.info(
-        "Seed %d: calibrated %d cells (%.0f%%), avg_w=%.2f",
-        si,
-        int(mask.sum()),
-        mask.mean() * 100,
-        float(w.mean()),
-    )
-    return result
 
 
 def _floor_and_normalize(tensor: np.ndarray) -> np.ndarray:

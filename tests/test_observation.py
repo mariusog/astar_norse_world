@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -203,11 +205,9 @@ def test_seeds_are_isolated(store: ObservationStore) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_save_and_load_roundtrip(store: ObservationStore, tmp_path: object) -> None:
+def test_save_and_load_roundtrip(store: ObservationStore, tmp_path: Path) -> None:
     """Observations survive save/load cycle."""
-    import pathlib
-
-    path = pathlib.Path(str(tmp_path)) / "obs.npz"
+    path = tmp_path / "obs.npz"
 
     # Add observations to both seeds
     store.add_observation(0, viewport_x=1, viewport_y=2, grid_patch=np.array([[0, 1], [3, 4]]))
@@ -228,10 +228,8 @@ def test_save_and_load_roundtrip(store: ObservationStore, tmp_path: object) -> N
     np.testing.assert_allclose(orig_probs[observed], loaded_probs[observed])
 
 
-def test_load_from_nonexistent_raises(tmp_path: object) -> None:
+def test_load_from_nonexistent_raises(tmp_path: Path) -> None:
     """Loading a missing file raises FileNotFoundError."""
-    import pathlib
-
-    path = pathlib.Path(str(tmp_path)) / "missing.npz"
+    path = tmp_path / "missing.npz"
     with pytest.raises(FileNotFoundError):
         ObservationStore.load_from_disk(path)
