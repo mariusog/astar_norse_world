@@ -256,3 +256,14 @@ def _score_round_seeds(
         scores.append(result["score"])
 
     return scores
+
+
+class MLGridPredictor:
+    """Adapter wrapping trained XGBoost model as GridPredictor."""
+
+    def __init__(self, model: MultiOutputRegressor) -> None:
+        self._model = model
+
+    def predict_grid(self, grid: np.ndarray) -> np.ndarray:
+        """Predict H x W x 6 probability tensor."""
+        return predict_grid(grid, self._model)

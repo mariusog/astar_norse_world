@@ -257,3 +257,14 @@ def _floor_and_normalize(tensor: np.ndarray) -> None:
     tensor[:] = np.maximum(tensor, FEATURE_PROB_FLOOR)
     sums = tensor.sum(axis=2, keepdims=True)
     tensor[:] = tensor / sums
+
+
+class FeatureGridPredictor:
+    """Adapter wrapping feature lookup as GridPredictor."""
+
+    def __init__(self, lookup: FeatureLookup) -> None:
+        self._lookup = lookup
+
+    def predict_grid(self, grid: np.ndarray) -> np.ndarray:
+        """Predict H x W x 6 probability tensor."""
+        return predict_from_features(grid, self._lookup)

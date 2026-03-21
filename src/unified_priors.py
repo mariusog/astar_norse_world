@@ -239,3 +239,19 @@ def _normalize_2d(accum: np.ndarray, total: np.ndarray) -> np.ndarray:
 def _uniform(rows: int, cols: int) -> np.ndarray:
     """Return uniform distribution array."""
     return np.full((rows, cols), 1.0 / cols, dtype=np.float64)
+
+
+class PriorGridPredictor:
+    """Adapter wrapping terrain priors as GridPredictor."""
+
+    def __init__(
+        self,
+        priors: np.ndarray,
+        dist_priors: np.ndarray | None = None,
+    ) -> None:
+        self._priors = priors
+        self._dist_priors = dist_priors
+
+    def predict_grid(self, grid: np.ndarray) -> np.ndarray:
+        """Predict H x W x 6 probability tensor."""
+        return predict_from_priors(grid, self._priors, self._dist_priors)
