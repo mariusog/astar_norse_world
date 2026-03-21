@@ -174,9 +174,9 @@ DIST_BIN_EDGES = [0, 1, 2, 3, 4, 5, 7, 10, 15, 999]  # per-distance bins for fin
 
 SURVIVE_WEIGHT = 2.0  # weight for survive rounds (balanced for collapse too)
 COLLAPSE_WEIGHT = 1.0  # weight for rounds where settlements collapsed
-SURVIVE_ROUNDS = frozenset({1, 2, 5})  # normal settlement survival
-COLLAPSE_ROUNDS = frozenset({3, 4, 8})  # all settlements collapse
-AGGRESSIVE_ROUNDS = frozenset({6, 7})  # massive settlement expansion
+SURVIVE_ROUNDS = frozenset({1, 2, 5, 9})  # normal settlement survival
+COLLAPSE_ROUNDS = frozenset({3, 4, 8, 10, 13})  # all/most settlements collapse
+AGGRESSIVE_ROUNDS = frozenset({6, 7, 11, 12})  # massive settlement expansion
 
 # ---------------------------------------------------------------------------
 # Dynamic cell classification
