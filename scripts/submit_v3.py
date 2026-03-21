@@ -322,10 +322,10 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
 
 # Regime-specific training: include ONLY matching rounds
 _REGIME_INCLUDE: dict[str, set[int]] = {
-    "survive": {1, 2, 4, 5, 9, 13, 14},  # normal settlement survival
+    "survive": {1, 2, 4, 5, 9, 13, 14, 16},  # normal settlement survival
     "aggressive": {6, 7, 11, 12, 15},  # settlement expansion rounds
     "deep_collapse": {3, 4, 8, 9, 10, 13},  # collapse rounds (0-2 settlements)
-    "partial_collapse": {1, 2, 4, 5, 9, 13, 14},  # similar to survive
+    "partial_collapse": {1, 2, 4, 5, 9, 13, 14, 16},  # similar to survive
 }
 
 # Per-regime ensemble weights (XGBoost vs flat priors)
