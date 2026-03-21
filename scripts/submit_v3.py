@@ -280,16 +280,23 @@ def _probe_seed(
 
 
 def _find_densest_settlement(grid: np.ndarray) -> tuple[int | None, int | None]:
-    """Find settlement cell with most nearby settlement neighbors."""
-    ys, xs = np.where((grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT))
-    if len(ys) == 0:
+    """Find settlement cell with most nearby settlement neighbors.
+
+    Uses a uniform filter (box blur) over the settlement mask to compute
+    density in O(H*W) instead of O(n^2) pairwise comparisons.
+    """
+    from scipy.ndimage import uniform_filter
+
+    settle_mask = (grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)
+    if not settle_mask.any():
         return None, None
-    best_idx, best_n = 0, 0
-    for j in range(len(ys)):
-        n = int(((np.abs(ys - ys[j]) <= _VP_SIZE) & (np.abs(xs - xs[j]) <= _VP_SIZE)).sum())
-        if n > best_n:
-            best_n, best_idx = n, j
-    return int(xs[best_idx]), int(ys[best_idx])
+    # Box blur with viewport-sized kernel gives density per cell
+    density = uniform_filter(settle_mask.astype(np.float64), size=_VP_SIZE, mode="constant")
+    # Only consider settlement cells as candidates
+    density[~settle_mask] = 0.0
+    best = np.argmax(density)
+    best_y, best_x = np.unravel_index(best, grid.shape)
+    return int(best_x), int(best_y)
 
 
 def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[int, int]:
@@ -380,25 +387,34 @@ def _run_observations(
 
 
 def _plan_seed_viewports(grid: np.ndarray, w: int, h: int, budget: int) -> list[dict[str, int]]:
-    """Plan overlapping viewports on settlement clusters."""
-    ys, xs = np.where((grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT))
-    if len(ys) == 0:
+    """Plan overlapping viewports on settlement clusters.
+
+    Uses density-ranked settlement positions (from box-blur density map)
+    to place viewports centered on the densest clusters first.
+    """
+    from scipy.ndimage import uniform_filter
+
+    settle_mask = (grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)
+    if not settle_mask.any():
         return [{"x": w // 4, "y": h // 4, "w": _VP_SIZE, "h": _VP_SIZE}]
-    # Score settlements by neighbor density, pick top clusters
-    scored = sorted(
-        range(len(ys)),
-        key=lambda j: -((np.abs(ys - ys[j]) <= _VP_SIZE) & (np.abs(xs - xs[j]) <= _VP_SIZE)).sum(),
-    )
+
+    # Rank settlement cells by local density (O(H*W) via box blur)
+    density = uniform_filter(settle_mask.astype(np.float64), size=_VP_SIZE, mode="constant")
+    density[~settle_mask] = 0.0
+    flat_order = np.argsort(density.ravel())[::-1]
+    ranked_yx = np.array(np.unravel_index(flat_order, grid.shape)).T
+
     vps: list[dict[str, int]] = []
-    for j in scored:
+    for cy, cx in ranked_yx:
+        if density[cy, cx] <= 0:
+            break
         if len(vps) >= budget:
             break
-        cx, cy = int(xs[j]), int(ys[j])
         for dx, dy in [(0, 0), (-5, 0), (5, 0), (0, -5), (0, 5)]:
             if len(vps) >= budget:
                 break
-            vx = max(0, min(cx - _VP_SIZE // 2 + dx, w - _VP_SIZE))
-            vy = max(0, min(cy - _VP_SIZE // 2 + dy, h - _VP_SIZE))
+            vx = max(0, min(int(cx) - _VP_SIZE // 2 + dx, w - _VP_SIZE))
+            vy = max(0, min(int(cy) - _VP_SIZE // 2 + dy, h - _VP_SIZE))
             vp = {"x": vx, "y": vy, "w": _VP_SIZE, "h": _VP_SIZE}
             if vp not in vps:
                 vps.append(vp)

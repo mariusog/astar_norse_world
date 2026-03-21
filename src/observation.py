@@ -17,6 +17,13 @@ from src.terrain import SERVER_TO_PRED_CLASS
 
 logger = logging.getLogger(__name__)
 
+# Build a vectorized lookup array from SERVER_TO_PRED_CLASS dict.
+# Index by raw server code → prediction class (-1 for unmapped codes).
+_MAX_SERVER_CODE = max(SERVER_TO_PRED_CLASS) + 1
+_CODE_LOOKUP = np.full(_MAX_SERVER_CODE, -1, dtype=np.int8)
+for _code, _cls in SERVER_TO_PRED_CLASS.items():
+    _CODE_LOOKUP[_code] = _cls
+
 
 class ObservationStore:
     """Accumulate viewport observations and compute probability tensors.
@@ -58,6 +65,7 @@ class ObservationStore:
                 Accepts both server codes (0-5, 10, 11) and prediction
                 class indices (0-5). Server codes 10/11 map to class 0 (Empty).
         """
+        self._validate_seed(seed_index)
         self._ensure_seed(seed_index)
         vh, vw = grid_patch.shape
         self._accumulate_patch(
@@ -87,19 +95,36 @@ class ObservationStore:
         vw: int,
     ) -> None:
         """Add terrain counts from a viewport patch into the store."""
-        counts = self._counts[seed_index]
-        obs = self._obs_counts[seed_index]
-        for row in range(vh):
-            for col in range(vw):
-                gy = viewport_y + row
-                gx = viewport_x + col
-                if not self._in_bounds(gx, gy):
-                    continue
-                raw_code = int(grid_patch[row, col])
-                pred_class = SERVER_TO_PRED_CLASS.get(raw_code, -1)
-                if 0 <= pred_class < NUM_PREDICTION_CLASSES:
-                    counts[gy, gx, pred_class] += 1
-                    obs[gy, gx] += 1
+        # Clip viewport to map bounds
+        y_end = min(viewport_y + vh, self._height)
+        x_end = min(viewport_x + vw, self._width)
+        y_start = max(viewport_y, 0)
+        x_start = max(viewport_x, 0)
+        if y_start >= y_end or x_start >= x_end:
+            return
+
+        # Slice the patch to the in-bounds region
+        patch = grid_patch[
+            y_start - viewport_y : y_end - viewport_y,
+            x_start - viewport_x : x_end - viewport_x,
+        ].astype(np.int32)
+
+        # Map server codes → prediction classes via lookup array
+        safe = np.clip(patch, 0, _MAX_SERVER_CODE - 1)
+        classes = _CODE_LOOKUP[safe]
+
+        # Mask valid mapped codes (>= 0)
+        valid = classes >= 0
+        if not valid.any():
+            return
+
+        # Increment counts for each valid cell
+        rows, cols = np.where(valid)
+        gy = rows + y_start
+        gx = cols + x_start
+        cls_vals = classes[valid]
+        np.add.at(self._counts[seed_index], (gy, gx, cls_vals), 1)
+        np.add.at(self._obs_counts[seed_index], (gy, gx), 1)
 
     def get_observed_probs(self, seed_index: int) -> np.ndarray:
         """Return H x W x 6 probability tensor from observations.
@@ -226,6 +251,12 @@ class ObservationStore:
         return store
 
     # -- Internal helpers ---------------------------------------------------
+
+    def _validate_seed(self, seed_index: int) -> None:
+        """Raise ValueError if seed_index is out of range."""
+        if not 0 <= seed_index < self._num_seeds:
+            msg = f"seed_index {seed_index} out of range [0, {self._num_seeds})"
+            raise ValueError(msg)
 
     def _ensure_seed(self, seed_index: int) -> None:
         """Initialize storage for a seed if not already present."""

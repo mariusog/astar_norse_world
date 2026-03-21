@@ -233,3 +233,22 @@ def test_load_from_nonexistent_raises(tmp_path: Path) -> None:
     path = tmp_path / "missing.npz"
     with pytest.raises(FileNotFoundError):
         ObservationStore.load_from_disk(path)
+
+
+# ---------------------------------------------------------------------------
+# Seed validation
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_seed_raises(store: ObservationStore) -> None:
+    """Seed index outside [0, num_seeds) raises ValueError."""
+    patch = np.array([[0]])
+    with pytest.raises(ValueError, match="seed_index 5 out of range"):
+        store.add_observation(5, viewport_x=0, viewport_y=0, grid_patch=patch)
+
+
+def test_negative_seed_raises(store: ObservationStore) -> None:
+    """Negative seed index raises ValueError."""
+    patch = np.array([[0]])
+    with pytest.raises(ValueError, match="out of range"):
+        store.add_observation(-1, viewport_x=0, viewport_y=0, grid_patch=patch)
