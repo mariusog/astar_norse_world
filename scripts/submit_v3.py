@@ -39,9 +39,11 @@ logger = logging.getLogger(__name__)
 _VP_SIZE = 15
 _QUERY_DELAY = 0.2
 _DATA_DIR = "data/rounds"
+_OBS_CACHE_DIR = "data/obs_cache"
 _COLLAPSE_THRESHOLD = 0.05
 _AGGRESSIVE_THRESHOLD = 0.35
 _MAX_OBS_WEIGHT = 0.8
+_MIN_PROBES_FOR_REGIME = 3  # need at least 3 observed settlements to classify
 
 
 def main() -> None:
@@ -53,7 +55,9 @@ def main() -> None:
     w = rd.get("map_width", DEFAULT_MAP_WIDTH)
     logger.info("Round %s: %dx%d, %d seeds", round_id, w, h, len(states))
 
-    obs = ObservationStore(h, w, len(states))
+    # Load cached observations if available, otherwise create fresh
+    obs_path = Path(_OBS_CACHE_DIR) / f"{round_id}.npz"
+    obs = _load_or_create_obs(obs_path, h, w, len(states))
 
     # Phase 1: Probe regime (or use --regime flag)
     if args.regime:
@@ -61,7 +65,15 @@ def main() -> None:
         probe_used = 0
         logger.info("Using --regime %s (no probes)", regime)
     else:
-        regime, probe_used = _probe_regime(client, round_id, states, obs, h, w, args.dry_run)
+        regime, probe_used = _probe_regime(
+            client,
+            round_id,
+            states,
+            obs,
+            h,
+            w,
+            args.dry_run,
+        )
 
     # Train XGBoost + build regime-matched flat priors for ensemble
     model = _train_regime_model(regime)
@@ -71,8 +83,39 @@ def main() -> None:
     obs_budget = args.budget - probe_used
     _run_observations(client, round_id, states, obs, obs_budget, w, h, args.dry_run)
 
+    # Persist observations for potential re-runs
+    _save_obs(obs, obs_path, args.dry_run)
+
     predictions, grids = _build_all(states, model, obs, regime, flat_priors)
     _validate_and_submit(client, round_id, predictions, grids, args.dry_run, args.force)
+
+
+# -- Observation persistence ---------------------------------------------------
+
+
+def _load_or_create_obs(
+    path: Path,
+    h: int,
+    w: int,
+    num_seeds: int,
+) -> ObservationStore:
+    """Load cached observations from disk, or create a fresh store."""
+    if path.exists():
+        try:
+            store = ObservationStore.load_from_disk(path)
+            logger.info("Loaded cached observations from %s", path)
+            return store
+        except Exception:
+            logger.warning("Failed to load cached obs, starting fresh")
+    return ObservationStore(h, w, num_seeds)
+
+
+def _save_obs(obs: ObservationStore, path: Path, dry_run: bool) -> None:
+    """Save observations to disk for future re-runs."""
+    if dry_run:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    obs.save_to_disk(path)
 
 
 # -- Phase 1: Regime detection ------------------------------------------------
@@ -158,7 +201,13 @@ def _probe_regime(
     w: int,
     dry_run: bool,
 ) -> tuple[str, int]:
-    """Probe 1 viewport per seed, detect regime from settlement survival."""
+    """Probe 1 viewport per seed, detect regime from settlement survival.
+
+    Safety-first: defaults to 'survive' when evidence is insufficient.
+    The 'survive' regime uses all-inclusive training data and performs
+    well across most rounds (LOO avg 88.5 on partial_collapse).
+    Misclassifying as deep_collapse is catastrophic (R13: -42.6 pts).
+    """
     total_checked, total_survived, used = 0, 0, 0
     for si in range(len(states)):
         ok = _probe_seed(client, round_id, si, states[si][0], obs, h, w, dry_run)
@@ -169,14 +218,25 @@ def _probe_regime(
         total_survived += survived
 
     rate = total_survived / max(total_checked, 1)
-    if rate < _COLLAPSE_THRESHOLD:
-        regime = "deep_collapse"  # R3, R8-like: near-zero settlement
-    elif rate < 0.12:
-        regime = "partial_collapse"  # R4, R9-like: stochastic, no argmax settlement
+
+    # Safety: insufficient data → default to survive (safest regime)
+    if total_checked < _MIN_PROBES_FOR_REGIME:
+        regime = "survive"
+        logger.warning(
+            "Only %d settlements checked (need %d), defaulting to survive",
+            total_checked,
+            _MIN_PROBES_FOR_REGIME,
+        )
     elif rate > _AGGRESSIVE_THRESHOLD:
         regime = "aggressive"
+    elif rate < _COLLAPSE_THRESHOLD and total_checked >= 5:
+        # Require stronger evidence for collapse (>= 5 checked, < 5% survive)
+        regime = "deep_collapse"
     else:
+        # Default bucket: covers survive + partial_collapse
+        # Both use the same training rounds, so no harm in merging
         regime = "survive"
+
     logger.info(
         "Regime: %s (rate=%.3f, %d/%d, %d probes)",
         regime,
@@ -258,9 +318,10 @@ _REGIME_INCLUDE: dict[str, set[int]] = {
 }
 
 # Per-regime ensemble weights (XGBoost vs flat priors)
+# 1.0 = XGBoost only (no flat prior blending)
 _REGIME_ENSEMBLE: dict[str, float] = {
     "survive": 0.9,  # trust XGBoost heavily
-    "aggressive": 0.7,  # moderate XGBoost trust (4 expansion rounds)
+    "aggressive": 1.0,  # XGBoost only — ensemble hurts (R12 LOO: 63 vs 69)
     "deep_collapse": 0.7,  # moderate XGBoost trust
     "partial_collapse": 0.9,  # trust XGBoost heavily
 }
@@ -356,21 +417,22 @@ def _build_prediction(
     # Step 1: XGBoost prediction
     pred = predict_grid(grid, model)
 
-    # Step 2: Regime-specific ensemble with flat priors
-    if flat_priors is not None:
+    # Step 2: Regime-specific ensemble with flat priors (skip when weight=1.0)
+    w_xgb = _REGIME_ENSEMBLE.get(regime, 0.7)
+    if flat_priors is not None and w_xgb < 1.0:
         gi = np.clip(grid.astype(np.int32), 0, flat_priors.shape[0] - 1)
         fp = flat_priors[gi].copy()
         fp[grid == InternalTerrain.OCEAN] = [1, 0, 0, 0, 0, 0]
         fp[grid == InternalTerrain.MOUNTAIN] = [0, 0, 0, 0, 0, 1]
         fp = np.maximum(fp, PROBABILITY_FLOOR)
         fp = fp / fp.sum(axis=2, keepdims=True)
-        w_xgb = _REGIME_ENSEMBLE.get(regime, 0.7)
         pred = w_xgb * pred + (1 - w_xgb) * fp
 
-    # Step 3: Regime-specific power transform
+    # Step 3: Regime-specific power transform (skip when power=1.0)
     power = _REGIME_POWER.get(regime, 0.9)
-    pred = np.power(np.maximum(pred, 1e-10), power)
-    pred = pred / pred.sum(axis=-1, keepdims=True)
+    if power != 1.0:
+        pred = np.power(np.maximum(pred, 1e-10), power)
+        pred = pred / pred.sum(axis=-1, keepdims=True)
 
     # Step 4: Equilibrium shift from observations (per-terrain aggregate)
     pred = _equilibrium_shift(pred, grid, obs, si)
@@ -417,9 +479,10 @@ def _equilibrium_shift(
 
 
 # Regime-specific power transforms (from researcher optimization)
+# 1.0 = no power transform
 _REGIME_POWER: dict[str, float] = {
     "survive": 0.9,
-    "aggressive": 0.8,
+    "aggressive": 1.0,  # no power — hurts aggressive (R12 LOO: 65 vs 69)
     "deep_collapse": 1.0,
     "partial_collapse": 1.05,
 }
@@ -505,7 +568,10 @@ def _parse_args() -> argparse.Namespace:
     p.add_argument("--budget", type=int, default=TOTAL_QUERY_BUDGET)
     p.add_argument("--dry-run", action="store_true")
     p.add_argument("--force", action="store_true")
-    p.add_argument("--regime", choices=["survive", "collapse", "aggressive"])
+    p.add_argument(
+        "--regime",
+        choices=["survive", "aggressive", "deep_collapse", "partial_collapse"],
+    )
     return p.parse_args()
 
 

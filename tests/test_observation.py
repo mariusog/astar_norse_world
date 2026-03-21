@@ -196,3 +196,42 @@ def test_seeds_are_isolated(store: ObservationStore) -> None:
     mask1 = store.get_coverage_mask(1)
     assert mask0[0, 0] and not mask0[5, 5]
     assert mask1[5, 5] and not mask1[0, 0]
+
+
+# ---------------------------------------------------------------------------
+# Disk persistence
+# ---------------------------------------------------------------------------
+
+
+def test_save_and_load_roundtrip(store: ObservationStore, tmp_path: object) -> None:
+    """Observations survive save/load cycle."""
+    import pathlib
+
+    path = pathlib.Path(str(tmp_path)) / "obs.npz"
+
+    # Add observations to both seeds
+    store.add_observation(0, viewport_x=1, viewport_y=2, grid_patch=np.array([[0, 1], [3, 4]]))
+    store.add_observation(1, viewport_x=5, viewport_y=5, grid_patch=np.array([[2]]))
+
+    # Save and reload
+    store.save_to_disk(path)
+    loaded = ObservationStore.load_from_disk(path)
+
+    # Coverage masks should match
+    np.testing.assert_array_equal(store.get_coverage_mask(0), loaded.get_coverage_mask(0))
+    np.testing.assert_array_equal(store.get_coverage_mask(1), loaded.get_coverage_mask(1))
+
+    # Observed probs should match
+    orig_probs = store.get_observed_probs(0)
+    loaded_probs = loaded.get_observed_probs(0)
+    observed = ~np.isnan(orig_probs[:, :, 0])
+    np.testing.assert_allclose(orig_probs[observed], loaded_probs[observed])
+
+
+def test_load_from_nonexistent_raises(tmp_path: object) -> None:
+    """Loading a missing file raises FileNotFoundError."""
+    import pathlib
+
+    path = pathlib.Path(str(tmp_path)) / "missing.npz"
+    with pytest.raises(FileNotFoundError):
+        ObservationStore.load_from_disk(path)

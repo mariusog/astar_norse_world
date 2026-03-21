@@ -8,6 +8,7 @@ smoothing.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 
@@ -170,6 +171,49 @@ class ObservationStore:
         if total_cells == 0:
             return 0.0
         return float(mask.sum()) / total_cells
+
+    # -- Persistence -------------------------------------------------------
+
+    def save_to_disk(self, path: str | Path) -> None:
+        """Save observation data to a .npz file for cross-process persistence.
+
+        Args:
+            path: File path to write (will be overwritten if exists).
+        """
+        path = Path(path)
+        arrays: dict[str, np.ndarray] = {
+            "_meta": np.array([self._height, self._width, self._num_seeds], dtype=np.int32),
+        }
+        for si in self._counts:
+            arrays[f"counts_{si}"] = self._counts[si]
+            arrays[f"obs_{si}"] = self._obs_counts[si]
+        np.savez_compressed(path, **arrays)
+        logger.info("Saved observations to %s (%d seeds)", path, len(self._counts))
+
+    @classmethod
+    def load_from_disk(cls, path: str | Path) -> ObservationStore:
+        """Restore an ObservationStore from a .npz file.
+
+        Args:
+            path: File path previously written by save_to_disk().
+
+        Returns:
+            Restored ObservationStore with all accumulated counts.
+        """
+        path = Path(path)
+        data = np.load(path)
+        meta = data["_meta"]
+        height, width, num_seeds = int(meta[0]), int(meta[1]), int(meta[2])
+        store = cls(height, width, num_seeds)
+        for key in data.files:
+            if key.startswith("counts_"):
+                si = int(key.split("_", 1)[1])
+                store._counts[si] = data[key]
+            elif key.startswith("obs_"):
+                si = int(key.split("_", 1)[1])
+                store._obs_counts[si] = data[key]
+        logger.info("Loaded observations from %s (%d seeds)", path, len(store._counts))
+        return store
 
     # -- Internal helpers ---------------------------------------------------
 
