@@ -79,7 +79,7 @@ def main() -> None:
         )
 
     # Train XGBoost + build regime-matched flat priors for ensemble
-    model = _train_regime_model(regime)
+    models = _train_regime_model(regime)
     flat_priors = _build_flat_priors(regime)
 
     # Phase 2: Observation queries
@@ -89,7 +89,7 @@ def main() -> None:
     # Persist observations for potential re-runs
     _save_obs(obs, obs_path, args.dry_run)
 
-    predictions, grids = _build_all(states, model, obs, regime, flat_priors)
+    predictions, grids = _build_all(states, models, obs, regime, flat_priors)
     _validate_and_submit(client, round_id, predictions, grids, args.dry_run, args.force)
 
 
@@ -126,7 +126,7 @@ def _save_obs(obs: ObservationStore, path: Path, dry_run: bool) -> None:
 
 def _build_all(
     states: list,
-    model: Any,
+    models: list,
     obs: ObservationStore,
     regime: str = "survive",
     flat_priors: np.ndarray | None = None,
@@ -136,7 +136,7 @@ def _build_all(
     for si in range(len(states)):
         grid = states[si][0]
         grids.append(grid)
-        predictions.append(_build_prediction(grid, model, obs, si, regime, flat_priors))
+        predictions.append(_build_prediction(grid, models, obs, si, regime, flat_priors))
     return predictions, grids
 
 
@@ -338,12 +338,11 @@ _REGIME_ENSEMBLE: dict[str, float] = {
 }
 
 
-def _train_regime_model(regime: str) -> Any:
-    """Train XGBoost on regime-specific or all rounds.
+_NUM_ENSEMBLE_SEEDS = 5
 
-    Survive/partial_collapse use all data (more samples helps, +1-2 pts).
-    Aggressive/deep_collapse use regime-specific (mixing hurts badly).
-    """
+
+def _train_regime_model(regime: str) -> list:
+    """Train ensemble of XGBoost models with different seeds."""
     if regime in ("survive", "partial_collapse"):
         x, y = build_training_data(_DATA_DIR)
     else:
@@ -356,9 +355,13 @@ def _train_regime_model(regime: str) -> Any:
     if len(x) == 0:
         logger.warning("No training data for regime=%s, using all rounds", regime)
         x, y = build_training_data(_DATA_DIR)
-    model = train_model(x, y, seed=42)
-    logger.info("Trained XGBoost on regime=%s (%d samples)", regime, len(x))
-    return model
+
+    models = []
+    for seed in range(42, 42 + _NUM_ENSEMBLE_SEEDS):
+        model = train_model(x, y, seed=seed)
+        models.append(model)
+    logger.info("Trained %d XGBoost models on regime=%s (%d samples)", len(models), regime, len(x))
+    return models
 
 
 # -- Phase 2: Observations ----------------------------------------------------
@@ -434,15 +437,16 @@ def _plan_seed_viewports(grid: np.ndarray, w: int, h: int, budget: int) -> list[
 
 def _build_prediction(
     grid: np.ndarray,
-    model: Any,
+    models: list,
     obs: ObservationStore,
     si: int,
     regime: str = "survive",
     flat_priors: np.ndarray | None = None,
 ) -> np.ndarray:
     """Ensemble + power + equilibrium shift + observation calibration."""
-    # Step 1: XGBoost prediction
-    pred = predict_grid(grid, model)
+    # Step 1: XGBoost prediction (average across multi-seed ensemble)
+    preds = np.stack([predict_grid(grid, m) for m in models])
+    pred = preds.mean(axis=0)
 
     # Step 2: Regime-specific ensemble with flat priors (skip when weight=1.0)
     w_xgb = _REGIME_ENSEMBLE.get(regime, 0.7)
@@ -470,11 +474,11 @@ def _build_prediction(
     return _floor_and_normalize(pred)
 
 
-_REGIME_EQ_WEIGHT: dict[str, float] = {
-    "survive": 0.3,
-    "aggressive": 0.5,
-    "deep_collapse": 0.4,
-    "partial_collapse": 0.3,
+_REGIME_CONCENTRATION: dict[str, float] = {
+    "survive": 20,      # trust XGBoost more (need many obs to shift)
+    "aggressive": 10,   # shift more easily from observations
+    "deep_collapse": 15,
+    "partial_collapse": 20,
 }
 
 
@@ -485,13 +489,14 @@ def _equilibrium_shift(
     si: int,
     regime: str = "survive",
 ) -> np.ndarray:
-    """Shift predictions toward per-terrain marginals from observations.
+    """Bayesian Dirichlet update of predictions from per-terrain observations.
 
-    Instead of per-cell blending (noisy with 1 obs), compute the average
-    observed distribution per terrain type and shift ALL cells of that
-    type toward it. This is the "Equilibrium Shift" technique.
+    Uses conjugate Dirichlet-Categorical update: the XGBoost prediction scaled
+    by a concentration parameter forms the prior, and observed terrain
+    distributions provide the likelihood. With few observations the prior
+    (XGBoost) dominates; with many, observations dominate automatically.
     """
-    weight = _REGIME_EQ_WEIGHT.get(regime, 0.3)
+    concentration = _REGIME_CONCENTRATION.get(regime, 15)
     obs_probs = obs.get_observed_probs(si)
     mask = obs.get_coverage_mask(si) & ~np.isnan(obs_probs[:, :, 0])
     if not mask.any():
@@ -502,15 +507,21 @@ def _equilibrium_shift(
         terrain_mask = (grid == t) & mask
         if terrain_mask.sum() < 3:
             continue
-        # Compute per-terrain equilibrium from observed cells
         equilibrium = obs_probs[terrain_mask].mean(axis=0)
         equilibrium = np.maximum(equilibrium, PROBABILITY_FLOOR)
         equilibrium = equilibrium / equilibrium.sum()
-        # Shift ALL cells of this terrain type toward equilibrium
-        all_terrain = grid == t
-        result[all_terrain] = (1 - weight) * result[all_terrain] + weight * equilibrium
+        n_obs = float(terrain_mask.sum())
 
-    logger.info("Seed %d: equilibrium shift from %d observed cells", si, int(mask.sum()))
+        all_terrain = grid == t
+        alpha_prior = result[all_terrain] * concentration
+        alpha_obs = n_obs * equilibrium  # broadcast (6,)
+        alpha_post = alpha_prior + alpha_obs
+        result[all_terrain] = alpha_post / alpha_post.sum(axis=-1, keepdims=True)
+
+    logger.info(
+        "Seed %d: Dirichlet update from %d observed cells (concentration=%d)",
+        si, int(mask.sum()), concentration,
+    )
     return result
 
 
