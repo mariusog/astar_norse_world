@@ -1,8 +1,4 @@
-"""XGBoost per-cell probability predictor.
-
-Trains multi-output regressors on spatial features extracted from
-terrain grids and predicts 6-class probability vectors per cell.
-"""
+"""XGBoost per-cell probability predictor."""
 
 from __future__ import annotations
 
@@ -25,6 +21,7 @@ from src.features import (
     compute_settlement_density,
     compute_settlement_distance,
     compute_terrain_neighborhood,
+    compute_terrain_onehot,
 )
 from src.terrain import InternalTerrain
 
@@ -36,40 +33,45 @@ ML_MAX_DEPTH = 5
 ML_LEARNING_RATE = 0.1
 ML_DENSITY_KERNEL = 7  # 7x7 uniform filter for density features
 NUM_TERRAIN_TYPES = 7  # InternalTerrain 0-6
-NUM_FEATURES = NUM_TERRAIN_TYPES + 5 + NUM_TERRAIN_TYPES  # one-hot + 5 scalar + 7 neighborhood
+NUM_FEATURES = NUM_TERRAIN_TYPES + 10 + NUM_TERRAIN_TYPES * 2 + 3  # 34 total
 
 
 def extract_cell_features(grid: np.ndarray) -> np.ndarray:
-    """Extract per-cell feature matrix from a terrain grid.
-
-    Returns (H*W, n_features) float32 matrix with 7 one-hot terrain
-    columns plus settlement_dist, settlement_density, forest_density,
-    is_coastal, ocean_dist.
-    """
-    terrain_onehot = _compute_terrain_onehot(grid)
-    settle_dist = compute_settlement_distance(grid).ravel()
-    settle_dens = compute_settlement_density(grid, window=ML_DENSITY_KERNEL).ravel()
-    forest_mask = (grid == InternalTerrain.FOREST).astype(np.float64)
-    forest_dens = uniform_filter(forest_mask, ML_DENSITY_KERNEL).ravel()
+    """Extract (H*W, 34) float32 feature matrix from terrain grid."""
+    terrain_onehot = compute_terrain_onehot(grid, NUM_TERRAIN_TYPES)
+    sd = compute_settlement_distance(grid).ravel().astype(np.float32)
+    s_dens = compute_settlement_density(grid, window=ML_DENSITY_KERNEL).ravel()
+    f_mask = (grid == InternalTerrain.FOREST).astype(np.float64)
+    f_dens = uniform_filter(f_mask, ML_DENSITY_KERNEL).ravel().astype(np.float32)
     coastal = compute_coastal_mask(grid).ravel().astype(np.float32)
-    ocean_dist = compute_ocean_distance(grid).ravel()
-    # Neighborhood context: fraction of each terrain type in local window
-    neighborhood = compute_terrain_neighborhood(grid, radius=2)
-    nbr_flat = neighborhood.reshape(-1, neighborhood.shape[2])  # (H*W, 7)
+    od = compute_ocean_distance(grid).ravel().astype(np.float32)
+    inv_sd, inv_od = 1.0 / (1.0 + sd), 1.0 / (1.0 + od)
+    scalars = _build_scalars(sd, s_dens, f_dens, coastal, od, inv_sd, inv_od)
+    nbr_r2 = compute_terrain_neighborhood(grid, radius=2).reshape(-1, NUM_TERRAIN_TYPES)
+    nbr_r4 = compute_terrain_neighborhood(grid, radius=4).reshape(-1, NUM_TERRAIN_TYPES)
+    is_forest = terrain_onehot[:, InternalTerrain.FOREST].astype(np.float32)
+    interactions = np.column_stack(
+        [is_forest * sd, is_forest * inv_sd, f_dens * inv_sd],
+    ).astype(np.float32)
+    return np.concatenate(
+        [terrain_onehot, scalars, nbr_r2, nbr_r4, interactions],
+        axis=1,
+    ).astype(np.float32)
 
-    scalars = np.column_stack([settle_dist, settle_dens, forest_dens, coastal, ocean_dist]).astype(
-        np.float32
-    )
-    return np.concatenate([terrain_onehot, scalars, nbr_flat], axis=1).astype(np.float32)
 
-
-def _compute_terrain_onehot(grid: np.ndarray) -> np.ndarray:
-    """One-hot encode terrain types, flattened to (H*W, 7)."""
-    flat = grid.ravel().astype(np.int32)
-    onehot = np.zeros((flat.shape[0], NUM_TERRAIN_TYPES), dtype=np.float32)
-    valid = (flat >= 0) & (flat < NUM_TERRAIN_TYPES)
-    onehot[valid, flat[valid]] = 1.0
-    return onehot
+def _build_scalars(
+    sd: np.ndarray,
+    s_dens: np.ndarray,
+    f_dens: np.ndarray,
+    coastal: np.ndarray,
+    od: np.ndarray,
+    inv_sd: np.ndarray,
+    inv_od: np.ndarray,
+) -> np.ndarray:
+    """Stack 10 scalar features into (N, 10) float32 array."""
+    return np.column_stack(
+        [sd, s_dens, f_dens, coastal, od, inv_sd, sd**2, np.log1p(sd), inv_od, np.log1p(od)]
+    ).astype(np.float32)
 
 
 def build_training_data(
