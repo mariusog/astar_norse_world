@@ -338,7 +338,7 @@ _REGIME_ENSEMBLE: dict[str, float] = {
 }
 
 
-_NUM_ENSEMBLE_SEEDS = 5
+_NUM_ENSEMBLE_SEEDS = 1  # ensemble gives 0 gain, save training time
 
 
 def _train_regime_model(regime: str) -> list:
@@ -475,10 +475,10 @@ def _build_prediction(
 
 
 _REGIME_CONCENTRATION: dict[str, float] = {
-    "survive": 20,      # trust XGBoost more (need many obs to shift)
-    "aggressive": 10,   # shift more easily from observations
-    "deep_collapse": 30,  # trust XGBoost more in collapse (higher = less obs shift)
-    "partial_collapse": 20,
+    "survive": 500,     # XGBoost is strong for survive, obs shift hurts (~6 pts)
+    "aggressive": 10,   # shift heavily from observations (critical for aggressive)
+    "deep_collapse": 30,  # moderate trust in XGBoost for collapse
+    "partial_collapse": 500,  # similar to survive
 }
 
 
