@@ -57,12 +57,10 @@ def extract_cell_features(grid: np.ndarray) -> np.ndarray:
     neighborhood = compute_terrain_neighborhood(grid, radius=2)
     nbr_flat = neighborhood.reshape(-1, neighborhood.shape[2])  # (H*W, 7)
 
-    scalars = np.column_stack(
-        [settle_dist, settle_dens, forest_dens, coastal, ocean_dist]
-    ).astype(np.float32)
-    return np.concatenate(
-        [terrain_onehot, scalars, nbr_flat], axis=1
-    ).astype(np.float32)
+    scalars = np.column_stack([settle_dist, settle_dens, forest_dens, coastal, ocean_dist]).astype(
+        np.float32
+    )
+    return np.concatenate([terrain_onehot, scalars, nbr_flat], axis=1).astype(np.float32)
 
 
 def _compute_terrain_onehot(grid: np.ndarray) -> np.ndarray:

@@ -5,13 +5,13 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from src.constants import NUM_PREDICTION_CLASSES
 from src._legacy.position_priors import (
     SettlementDistanceModel,
     _apply_flat_priors,
     _compute_distances_from_positions,
     predict_from_position,
 )
+from src.constants import NUM_PREDICTION_CLASSES
 from src.terrain import InternalTerrain
 
 # ---------------------------------------------------------------------------

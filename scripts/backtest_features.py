@@ -16,8 +16,8 @@ from typing import Any
 import numpy as np
 
 from src.constants import NUM_INTERNAL_TYPES, NUM_PREDICTION_CLASSES
-from src.transforms import apply_floor_to_row
 from src.scoring import score_prediction
+from src.transforms import apply_floor_to_row
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger(__name__)

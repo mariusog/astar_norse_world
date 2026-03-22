@@ -5,6 +5,12 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+from src._legacy.predictor import (
+    Predictor,
+    _apply_floor_and_normalize,
+    _apply_static_terrain,
+    _blend_probabilities,
+)
 from src.constants import (
     NUM_PREDICTION_CLASSES,
     OBSERVATION_WEIGHT,
@@ -12,12 +18,6 @@ from src.constants import (
     STATIC_TERRAIN_CONFIDENCE,
 )
 from src.observation import ObservationStore
-from src._legacy.predictor import (
-    Predictor,
-    _apply_floor_and_normalize,
-    _apply_static_terrain,
-    _blend_probabilities,
-)
 from src.settlement import Settlement
 from src.terrain import InternalTerrain
 

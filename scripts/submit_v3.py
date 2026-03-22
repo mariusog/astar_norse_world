@@ -475,8 +475,8 @@ def _build_prediction(
 
 
 _REGIME_CONCENTRATION: dict[str, float] = {
-    "survive": 500,     # XGBoost is strong for survive, obs shift hurts (~6 pts)
-    "aggressive": 10,   # shift heavily from observations (critical for aggressive)
+    "survive": 500,  # XGBoost is strong for survive, obs shift hurts (~6 pts)
+    "aggressive": 10,  # shift heavily from observations (critical for aggressive)
     "deep_collapse": 30,  # moderate trust in XGBoost for collapse
     "partial_collapse": 500,  # similar to survive
 }
@@ -520,7 +520,9 @@ def _equilibrium_shift(
 
     logger.info(
         "Seed %d: Dirichlet update from %d observed cells (concentration=%d)",
-        si, int(mask.sum()), concentration,
+        si,
+        int(mask.sum()),
+        concentration,
     )
     return result
 

@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from src._legacy.predictor import Predictor
 from src.api_client import AstarClient, BudgetExhaustedError
 from src.constants import (
     DEFAULT_MAP_HEIGHT,
@@ -21,7 +22,6 @@ from src.constants import (
 )
 from src.observation import ObservationStore
 from src.pipeline_types import PipelineResult, SeedResult  # re-exported
-from src._legacy.predictor import Predictor
 from src.query_strategy import QueryPlanner
 from src.state_loader import load_round
 from src.terrain import map_server_codes

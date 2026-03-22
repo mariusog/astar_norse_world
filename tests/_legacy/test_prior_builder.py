@@ -6,7 +6,6 @@ from pathlib import Path
 
 import numpy as np
 
-from src.constants import NUM_PREDICTION_CLASSES, PROBABILITY_FLOOR
 from src._legacy.prior_builder import (
     NUM_INTERNAL_TYPES,
     _compute_round_weight,
@@ -17,6 +16,7 @@ from src._legacy.prior_builder import (
     load_priors,
     save_priors,
 )
+from src.constants import NUM_PREDICTION_CLASSES, PROBABILITY_FLOOR
 from src.terrain import InternalTerrain
 
 

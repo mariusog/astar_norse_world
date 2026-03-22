@@ -143,9 +143,9 @@ def compute_settlement_density(
     Returns:
         H x W int32 array of settlement/port counts per window.
     """
-    mask = (
-        (grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)
-    ).astype(np.float64)
+    mask = ((grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)).astype(
+        np.float64
+    )
     raw = uniform_filter(mask, size=window, mode="constant", cval=0.0)
     return np.round(raw * window**2).astype(np.int32)
 
@@ -163,9 +163,9 @@ def compute_terrain_neighborhood(grid: np.ndarray, radius: int = 2) -> np.ndarra
     result = np.zeros((h, w, NUM_INTERNAL_TYPES), dtype=np.float32)
     for t in range(NUM_INTERNAL_TYPES):
         mask = (grid == t).astype(np.float64)
-        result[:, :, t] = uniform_filter(
-            mask, size=window, mode="constant", cval=0.0
-        ).astype(np.float32)
+        result[:, :, t] = uniform_filter(mask, size=window, mode="constant", cval=0.0).astype(
+            np.float32
+        )
     return result
 
 

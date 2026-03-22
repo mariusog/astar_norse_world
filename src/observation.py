@@ -204,7 +204,7 @@ class ObservationStore:
         for si in self._counts:
             arrays[f"counts_{si}"] = self._counts[si]
             arrays[f"obs_{si}"] = self._obs_counts[si]
-        np.savez_compressed(path, **arrays)
+        np.savez_compressed(str(path), **arrays)  # type: ignore[arg-type]
         logger.info("Saved observations to %s (%d seeds)", path, len(self._counts))
 
     @classmethod

@@ -24,8 +24,8 @@ from src.constants import (
     SURVIVE_WEIGHT,
 )
 from src.features import compute_settlement_distance
-from src.transforms import apply_floor_to_row
 from src.terrain import InternalTerrain
+from src.transforms import apply_floor_to_row
 
 logger = logging.getLogger(__name__)
 

@@ -123,7 +123,6 @@ def _process_seed(
     _accumulate(grid, gt, dist_bins, density_bins, weight, accum)
 
 
-
 def _digitize_distances(dist_map: np.ndarray) -> np.ndarray:
     """Bin settlement distances using DIST_BIN_EDGES."""
     return np.digitize(dist_map, DIST_BIN_EDGES[1:]).astype(np.int32)
