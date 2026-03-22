@@ -24,6 +24,7 @@ from src.features import (
     compute_ocean_distance,
     compute_settlement_density,
     compute_settlement_distance,
+    compute_terrain_neighborhood,
 )
 from src.terrain import InternalTerrain
 
@@ -35,7 +36,7 @@ ML_MAX_DEPTH = 5
 ML_LEARNING_RATE = 0.1
 ML_DENSITY_KERNEL = 7  # 7x7 uniform filter for density features
 NUM_TERRAIN_TYPES = 7  # InternalTerrain 0-6
-NUM_FEATURES = NUM_TERRAIN_TYPES + 5  # one-hot + 5 scalar features
+NUM_FEATURES = NUM_TERRAIN_TYPES + 5 + NUM_TERRAIN_TYPES  # one-hot + 5 scalar + 7 neighborhood
 
 
 def extract_cell_features(grid: np.ndarray) -> np.ndarray:
@@ -52,11 +53,16 @@ def extract_cell_features(grid: np.ndarray) -> np.ndarray:
     forest_dens = uniform_filter(forest_mask, ML_DENSITY_KERNEL).ravel()
     coastal = compute_coastal_mask(grid).ravel().astype(np.float32)
     ocean_dist = compute_ocean_distance(grid).ravel()
+    # Neighborhood context: fraction of each terrain type in local window
+    neighborhood = compute_terrain_neighborhood(grid, radius=2)
+    nbr_flat = neighborhood.reshape(-1, neighborhood.shape[2])  # (H*W, 7)
 
     scalars = np.column_stack(
         [settle_dist, settle_dens, forest_dens, coastal, ocean_dist]
     ).astype(np.float32)
-    return np.concatenate([terrain_onehot, scalars], axis=1).astype(np.float32)
+    return np.concatenate(
+        [terrain_onehot, scalars, nbr_flat], axis=1
+    ).astype(np.float32)
 
 
 def _compute_terrain_onehot(grid: np.ndarray) -> np.ndarray:
@@ -119,10 +125,27 @@ def _load_round_samples(
         all_y.append(y)
 
 
+def compute_entropy_weights(y: np.ndarray) -> np.ndarray:
+    """Compute Shannon entropy of each target distribution as sample weight.
+
+    Args:
+        y: (N, C) array of probability vectors.
+
+    Returns:
+        (N,) float32 array of weights, normalized so mean weight = 1.0.
+    """
+    safe = np.maximum(y, 1e-10)
+    entropy = -np.sum(safe * np.log(safe), axis=1)
+    # Normalize so mean weight = 1.0
+    entropy = entropy / (entropy.mean() + 1e-10)
+    return entropy.astype(np.float32)
+
+
 def train_model(
     x: np.ndarray,
     y: np.ndarray,
     seed: int = 42,
+    sample_weight: np.ndarray | None = None,
 ) -> MultiOutputRegressor:
     """Fit a multi-output XGBoost regressor on (N, F) features and (N, 6) targets."""
     base = XGBRegressor(
@@ -133,7 +156,7 @@ def train_model(
         verbosity=0,
     )
     model = MultiOutputRegressor(base)
-    model.fit(x, y)
+    model.fit(x, y, sample_weight=sample_weight)
     logger.info("Model trained on %d samples", x.shape[0])
     return model
 

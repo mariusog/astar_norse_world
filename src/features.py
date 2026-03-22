@@ -150,6 +150,25 @@ def compute_settlement_density(
     return np.round(raw * window**2).astype(np.int32)
 
 
+def compute_terrain_neighborhood(grid: np.ndarray, radius: int = 2) -> np.ndarray:
+    """Compute fraction of each terrain type in local neighborhood.
+
+    Returns (H, W, num_types) float array where [y,x,t] is the fraction
+    of cells within a (2*radius+1) square window that are terrain type t.
+    """
+    from src.constants import NUM_INTERNAL_TYPES
+
+    h, w = grid.shape
+    window = 2 * radius + 1
+    result = np.zeros((h, w, NUM_INTERNAL_TYPES), dtype=np.float32)
+    for t in range(NUM_INTERNAL_TYPES):
+        mask = (grid == t).astype(np.float64)
+        result[:, :, t] = uniform_filter(
+            mask, size=window, mode="constant", cval=0.0
+        ).astype(np.float32)
+    return result
+
+
 def compute_feature_grid(grid: np.ndarray) -> dict[str, np.ndarray]:
     """Compute all spatial features for a terrain grid.
 
