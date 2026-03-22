@@ -169,6 +169,18 @@ def compute_terrain_neighborhood(grid: np.ndarray, radius: int = 2) -> np.ndarra
     return result
 
 
+def compute_terrain_onehot(
+    grid: np.ndarray,
+    num_types: int = 7,
+) -> np.ndarray:
+    """One-hot encode terrain types, flattened to (H*W, num_types)."""
+    flat = grid.ravel().astype(np.int32)
+    onehot = np.zeros((flat.shape[0], num_types), dtype=np.float32)
+    valid = (flat >= 0) & (flat < num_types)
+    onehot[valid, flat[valid]] = 1.0
+    return onehot
+
+
 def compute_feature_grid(grid: np.ndarray) -> dict[str, np.ndarray]:
     """Compute all spatial features for a terrain grid.
 
