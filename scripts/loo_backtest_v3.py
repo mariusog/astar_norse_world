@@ -33,12 +33,12 @@ logger = logging.getLogger(__name__)
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "rounds"
 
-# Mirror from submit_v3
+# Mirror from submit_v3 (keep in sync!)
 _REGIME_INCLUDE: dict[str, set[int]] = {
-    "survive": {1, 2, 4, 5, 9, 13, 14, 16},
-    "aggressive": {6, 7, 11, 12, 15, 17},
-    "deep_collapse": {3, 4, 8, 9, 10, 13},
-    "partial_collapse": {1, 2, 4, 5, 9, 13, 14, 16},
+    "survive": {1, 2, 4, 5, 9, 13, 16, 20, 21},
+    "aggressive": {6, 7, 11, 12, 14, 15, 17, 18},
+    "deep_collapse": {3, 4, 8, 9, 10, 13, 19},
+    "partial_collapse": {1, 2, 4, 5, 9, 13, 16, 20, 21},
 }
 
 _REGIME_ENSEMBLE: dict[str, float] = {
@@ -49,14 +49,14 @@ _REGIME_ENSEMBLE: dict[str, float] = {
 }
 
 _REGIME_POWER: dict[str, float] = {
-    "survive": 0.95,
+    "survive": 1.0,  # no power — raw XGBoost is best for survive
     "aggressive": 1.0,
     "deep_collapse": 1.0,
     "partial_collapse": 1.05,
 }
 
 _REGIME_TRANSFORMS: dict[str, list[tuple[str, dict]]] = {
-    "survive": [("spatial_smooth", {"sigma": 0.3})],
+    "survive": [],  # no smoothing — raw XGBoost is best for survive
     "aggressive": [],
     "deep_collapse": [("collapse_shift", {"threshold": 0.3})],
     "partial_collapse": [],
@@ -76,6 +76,15 @@ _ROUND_REGIME: dict[int, str] = {
     10: "deep_collapse",
     11: "aggressive",
     12: "aggressive",
+    13: "partial_collapse",
+    14: "aggressive",
+    15: "aggressive",
+    16: "survive",
+    17: "aggressive",
+    18: "aggressive",
+    19: "deep_collapse",
+    20: "survive",
+    21: "survive",
 }
 
 
@@ -173,9 +182,12 @@ def run_loo_backtest() -> None:
         seed_scores = []
         regime = _ROUND_REGIME.get(rn, "survive")
 
-        # Build exclude set: all rounds not in regime include + target
-        include = _REGIME_INCLUDE.get(regime)
-        exclude = (set(range(1, 100)) - include) | {rn} if include else {rn}
+        # Match submit_v3: survive/partial_collapse train on ALL rounds
+        if regime in ("survive", "partial_collapse"):
+            exclude = {rn}
+        else:
+            include = _REGIME_INCLUDE.get(regime)
+            exclude = (set(range(1, 100)) - include) | {rn} if include else {rn}
 
         x, y = build_training_data(str(DATA_DIR), exclude_round_numbers=exclude)
         if len(x) == 0:
