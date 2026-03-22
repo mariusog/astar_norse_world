@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Research - Astar Norse World{% endblock %}
+{% block content %}
+<h1>Model Research</h1>
+
+<div class="card">
+    <h2>Run LOO Backtest</h2>
+    <div class="flex-row">
+        <select id="strategy-select">
+            {% for s in strategies %}
+            <option value="{{ s.name }}">{{ s.name }} - {{ s.description }}</option>
+            {% endfor %}
+        </select>
+        <button class="btn btn-primary"
+                hx-post="/research/backtest/"
+                hx-target="#backtest-results"
+                hx-indicator="#backtest-spinner"
+                onclick="this.setAttribute('hx-post', '/research/backtest/' + document.getElementById('strategy-select').value); htmx.process(this);">
+            Run LOO Backtest
+        </button>
+        <span id="backtest-spinner" class="htmx-indicator"><span class="spinner"></span> Running backtest (may take 30-60s)...</span>
+    </div>
+</div>
+
+<div id="backtest-results">
+    {% if leaderboard %}
+    <div class="card">
+        <h2>Leaderboard</h2>
+        <table>
+            <thead>
+                <tr><th>#</th><th>Strategy</th><th>Avg Score</th><th>Rounds</th>
+                    <th>Per-Round Avg</th><th>Actions</th></tr>
+            </thead>
+            <tbody>
+                {% for entry in leaderboard %}
+                <tr>
+                    <td>{{ loop.index }}</td>
+                    <td>{{ entry.strategy }}</td>
+                    <td class="{% if entry.avg_score >= 70 %}score-good{% elif entry.avg_score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                        {{ entry.avg_score }}</td>
+                    <td>{{ entry.num_rounds }}</td>
+                    <td>
+                        {% for rn, score in entry.per_round.items() %}
+                        R{{ rn }}: {{ score }}{% if not loop.last %}, {% endif %}
+                        {% endfor %}
+                    </td>
+                    <td><a href="/research/model/{{ entry.strategy }}" class="btn btn-primary">Detail</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Strategy Comparison</h2>
+    <div class="flex-row">
+        <select id="compare-a">
+            {% for s in strategies %}
+            <option value="{{ s.name }}">{{ s.name }}</option>
+            {% endfor %}
+        </select>
+        <span>vs</span>
+        <select id="compare-b">
+            {% for s in strategies %}
+            <option value="{{ s.name }}" {% if loop.index == 2 %}selected{% endif %}>{{ s.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <p style="margin-top: 0.75rem; color: #7f8c8d;">
+        Run backtests for both strategies first, then compare their per-round scores above.
+    </p>
+</div>
+{% endblock %}

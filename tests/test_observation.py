@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -36,6 +38,20 @@ def test_add_observation_updates_counts(store: ObservationStore) -> None:
     assert obs[6, 4] == 1
     # Unobserved cell
     assert obs[0, 0] == 0
+
+
+def test_add_observation_rejects_invalid_class(store: ObservationStore) -> None:
+    """Passing a value outside 0-5 raises ValueError."""
+    patch = np.array([[7]])
+    with pytest.raises(ValueError, match="invalid values"):
+        store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=patch)
+
+
+def test_add_observation_rejects_server_code_10(store: ObservationStore) -> None:
+    """Raw server code 10 is no longer accepted -- must pre-map."""
+    patch = np.array([[10]])
+    with pytest.raises(ValueError, match="invalid values"):
+        store.add_observation(0, viewport_x=0, viewport_y=0, grid_patch=patch)
 
 
 def test_add_observation_out_of_bounds_ignored(store: ObservationStore) -> None:
@@ -196,3 +212,57 @@ def test_seeds_are_isolated(store: ObservationStore) -> None:
     mask1 = store.get_coverage_mask(1)
     assert mask0[0, 0] and not mask0[5, 5]
     assert mask1[5, 5] and not mask1[0, 0]
+
+
+# ---------------------------------------------------------------------------
+# Disk persistence
+# ---------------------------------------------------------------------------
+
+
+def test_save_and_load_roundtrip(store: ObservationStore, tmp_path: Path) -> None:
+    """Observations survive save/load cycle."""
+    path = tmp_path / "obs.npz"
+
+    # Add observations to both seeds
+    store.add_observation(0, viewport_x=1, viewport_y=2, grid_patch=np.array([[0, 1], [3, 4]]))
+    store.add_observation(1, viewport_x=5, viewport_y=5, grid_patch=np.array([[2]]))
+
+    # Save and reload
+    store.save_to_disk(path)
+    loaded = ObservationStore.load_from_disk(path)
+
+    # Coverage masks should match
+    np.testing.assert_array_equal(store.get_coverage_mask(0), loaded.get_coverage_mask(0))
+    np.testing.assert_array_equal(store.get_coverage_mask(1), loaded.get_coverage_mask(1))
+
+    # Observed probs should match
+    orig_probs = store.get_observed_probs(0)
+    loaded_probs = loaded.get_observed_probs(0)
+    observed = ~np.isnan(orig_probs[:, :, 0])
+    np.testing.assert_allclose(orig_probs[observed], loaded_probs[observed])
+
+
+def test_load_from_nonexistent_raises(tmp_path: Path) -> None:
+    """Loading a missing file raises FileNotFoundError."""
+    path = tmp_path / "missing.npz"
+    with pytest.raises(FileNotFoundError):
+        ObservationStore.load_from_disk(path)
+
+
+# ---------------------------------------------------------------------------
+# Seed validation
+# ---------------------------------------------------------------------------
+
+
+def test_invalid_seed_raises(store: ObservationStore) -> None:
+    """Seed index outside [0, num_seeds) raises ValueError."""
+    patch = np.array([[0]])
+    with pytest.raises(ValueError, match="seed_index 5 out of range"):
+        store.add_observation(5, viewport_x=0, viewport_y=0, grid_patch=patch)
+
+
+def test_negative_seed_raises(store: ObservationStore) -> None:
+    """Negative seed index raises ValueError."""
+    patch = np.array([[0]])
+    with pytest.raises(ValueError, match="out of range"):
+        store.add_observation(-1, viewport_x=0, viewport_y=0, grid_patch=patch)

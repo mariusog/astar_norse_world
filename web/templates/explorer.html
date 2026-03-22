@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Explorer - Round {{ round.round_number }}{% endblock %}
+{% block content %}
+<div class="explorer-header">
+    <h1>Map Explorer</h1>
+    <div class="controls">
+        <label for="round-select">Round:</label>
+        <select id="round-select" onchange="switchRound(this.value)">
+            {% for r in all_rounds %}
+            <option value="{{ r.id }}" {% if r.id == round_id %}selected{% endif %}>
+                Round {{ r.round_number }} (w={{ r.round_weight }})
+            </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="explorer-layout">
+    <div class="explorer-main">
+        <!-- Seed tabs -->
+        <div class="seed-tabs">
+            {% for i in range(round.seeds_count if round.seeds_count else 5) %}
+            <button class="seed-tab {% if i == 0 %}active{% endif %}"
+                    onclick="switchSeed({{ i }}, this)"
+                    id="seed-tab-{{ i }}">
+                Seed {{ i }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <!-- View toggle -->
+        <div class="view-tabs">
+            <button class="view-tab active" onclick="switchView('initial', this)">Initial Grid</button>
+            <button class="view-tab" onclick="switchView('gt_argmax', this)">GT Argmax</button>
+            <button class="view-tab" onclick="switchView('entropy', this)">Entropy</button>
+        </div>
+
+        <!-- Grid container (loaded via HTMX) -->
+        <div id="grid-container"
+             hx-get="/htmx/grid/{{ round_id }}/0/initial"
+             hx-trigger="load"
+             hx-swap="innerHTML">
+            <p class="muted">Loading grid...</p>
+        </div>
+    </div>
+
+    <!-- Right sidebar -->
+    <div class="explorer-sidebar">
+        <div class="card" id="legend-panel">
+            <h3>Legend & Stats</h3>
+            <p class="muted">Select a view to see legend</p>
+        </div>
+        <div class="card" id="cell-detail">
+            <h3>Cell Detail</h3>
+            <p class="muted">Click a cell to see GT probabilities</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentSeed = 0;
+    let currentView = 'initial';
+    const roundId = '{{ round_id }}';
+
+    function loadGrid() {
+        const url = `/htmx/grid/${roundId}/${currentSeed}/${currentView}`;
+        htmx.ajax('GET', url, {target: '#grid-container', swap: 'innerHTML'});
+    }
+
+    function switchRound(rid) {
+        window.location.href = `/explorer/${rid}`;
+    }
+
+    function switchSeed(idx, btn) {
+        currentSeed = idx;
+        document.querySelectorAll('.seed-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        loadGrid();
+    }
+
+    function switchView(view, btn) {
+        currentView = view;
+        document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        loadGrid();
+    }
+
+    function showCell(row, col) {
+        const url = `/htmx/cell/${roundId}/${currentSeed}/${row}/${col}`;
+        htmx.ajax('GET', url, {target: '#cell-detail', swap: 'innerHTML'});
+    }
+</script>
+{% endblock %}

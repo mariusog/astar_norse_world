@@ -1,0 +1,39 @@
+{# Reusable score bar component.
+   Parameters:
+     score  — numeric value 0-100
+     label  — optional text label (defaults to score rounded to 1 decimal)
+     width  — optional max width in px (defaults to 100%)
+#}
+{% set color = '#4caf50' if score >= 80 else '#ffc107' if score >= 60 else '#f44336' %}
+{% set display_label = label if label is defined and label else (score | round(1)) %}
+<div class="score-bar-container" {% if width is defined and width %}style="max-width: {{ width }}px;"{% endif %}>
+  <div class="score-bar" style="width: {{ score }}%; background: {{ color }};">
+    <span class="score-bar-label">{{ display_label }}</span>
+  </div>
+</div>
+
+<style>
+.score-bar-container {
+  background: #2a2a4a;
+  border-radius: 3px;
+  overflow: hidden;
+  height: 20px;
+  width: 100%;
+}
+.score-bar {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 4px;
+  border-radius: 3px;
+  min-width: 28px;
+  transition: width 0.3s ease;
+}
+.score-bar-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #1a1a2e;
+  white-space: nowrap;
+}
+</style>

@@ -1,0 +1,69 @@
+{# HTMX fragment: model detail panel (right side of research page) #}
+<div class="model-detail-panel">
+  <h2 class="detail-title">{{ selected.name }}</h2>
+  <span class="status-badge status-{{ selected.status }}">{{ selected.status }}</span>
+
+  <div class="detail-meta">
+    <div class="meta-row">
+      <span class="meta-label">ID</span>
+      <span class="meta-value">{{ selected.id }}</span>
+    </div>
+    <div class="meta-row">
+      <span class="meta-label">Avg Score</span>
+      <span class="meta-value score-value {% if selected.avg_score >= 80 %}score-high{% elif selected.avg_score >= 60 %}score-mid{% else %}score-low{% endif %}">
+        {{ selected.avg_score }}
+      </span>
+    </div>
+    <div class="meta-row">
+      <span class="meta-label">Delta</span>
+      <span class="meta-value">{{ selected.delta }}</span>
+    </div>
+    <div class="meta-row">
+      <span class="meta-label">Runtime</span>
+      <span class="meta-value">{{ selected.runtime_ms }}ms</span>
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h3>Description</h3>
+    <p class="detail-desc">{{ selected.description }}</p>
+  </div>
+
+  <div class="detail-section">
+    <h3>Parameters</h3>
+    <div class="params-grid">
+      {% for key, val in selected.params.items() %}
+      <div class="param-row">
+        <span class="param-key">{{ key }}</span>
+        <span class="param-val">{{ val }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="detail-section">
+    <h3>Per-Round Scores</h3>
+    <div class="round-bars">
+      {% for score in selected.round_scores %}
+      {% set bar_color = '#4caf50' if score >= 80 else '#ffc107' if score >= 60 else '#f44336' %}
+      <div class="round-bar-row">
+        <span class="round-label">R{{ loop.index }}</span>
+        <div class="round-bar-track">
+          <div class="round-bar-fill" style="width: {{ score }}%; background: {{ bar_color }};"></div>
+        </div>
+        <span class="round-bar-val">{{ score }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="detail-actions">
+    <button class="btn btn-primary"
+            hx-post="/research/backtest/{{ selected.id }}"
+            hx-target="#backtest-result"
+            hx-swap="innerHTML">
+      Run Backtest
+    </button>
+    <div id="backtest-result"></div>
+  </div>
+</div>

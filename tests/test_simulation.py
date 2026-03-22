@@ -33,24 +33,33 @@ class TestSimulate:
     def test_mountains_never_change(self) -> None:
         grid, settlements = generate_map(seed=42, width=20, height=20)
         mountains_before = (grid == InternalTerrain.MOUNTAIN).copy()
-        simulate(grid, settlements, seed=100, years=50)
-        mountains_after = grid == InternalTerrain.MOUNTAIN
+        final_grid, _ = simulate(grid, settlements, seed=100, years=50)
+        mountains_after = final_grid == InternalTerrain.MOUNTAIN
         np.testing.assert_array_equal(mountains_before, mountains_after)
 
     def test_ocean_border_never_changes(self) -> None:
         grid, settlements = generate_map(seed=42, width=20, height=20)
         # Perimeter should stay ocean
         border_before = grid[0, :].copy()
-        simulate(grid, settlements, seed=100, years=50)
-        np.testing.assert_array_equal(border_before, grid[0, :])
+        final_grid, _ = simulate(grid, settlements, seed=100, years=50)
+        np.testing.assert_array_equal(border_before, final_grid[0, :])
 
     def test_simulation_changes_terrain(self) -> None:
         """Over 50 years, the map should change from initial state."""
         grid, settlements = generate_map(seed=42, width=30, height=30)
         initial = grid.copy()
-        simulate(grid, settlements, seed=100, years=50)
+        final_grid, _ = simulate(grid, settlements, seed=100, years=50)
         # Some cells must have changed (settlements expand, collapse, etc.)
-        assert not np.array_equal(initial, grid)
+        assert not np.array_equal(initial, final_grid)
+
+    def test_simulate_does_not_mutate_inputs(self) -> None:
+        """simulate() must not modify the caller's grid or settlements."""
+        grid, settlements = generate_map(seed=42, width=20, height=20)
+        grid_orig = grid.copy()
+        pop_orig = settlements[0].population
+        simulate(grid, settlements, seed=100, years=20)
+        np.testing.assert_array_equal(grid, grid_orig)
+        assert settlements[0].population == pop_orig
 
 
 class TestRunSingle:

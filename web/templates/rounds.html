@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Rounds - Astar Norse World{% endblock %}
+{% block content %}
+<h1>Competition Rounds</h1>
+
+{% for rd in rounds %}
+<div class="card">
+    <div class="flex-row">
+        <h2>Round {{ rd.round_number }}</h2>
+        <span class="badge badge-{{ rd.status }}">{{ rd.status }}</span>
+    </div>
+    <p>Map: {{ rd.map_width }}x{{ rd.map_height }} | Seeds: {{ rd.seed_count }} | Date: {{ rd.event_date }}</p>
+
+    {% if rd.scores %}
+    <table>
+        <thead>
+            <tr><th>Seed</th><th>Score</th><th>Weighted KL</th><th>Dynamic Cells</th></tr>
+        </thead>
+        <tbody>
+            {% for s in rd.scores %}
+            <tr>
+                <td>{{ s.seed_index }}</td>
+                <td class="{% if s.score is defined and s.score is not none and s.score >= 70 %}score-good{% elif s.score is defined and s.score is not none and s.score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                    {{ s.score if s.score is defined and s.score is not none else "N/A" }}</td>
+                <td>{{ s.weighted_kl | default("N/A") }}</td>
+                <td>{{ s.num_dynamic_cells | default("N/A") }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color: #7f8c8d;">No submission scores available for this round.</p>
+    {% endif %}
+
+    <a href="/rounds/{{ rd.round_number }}" class="btn btn-primary">View Detail</a>
+</div>
+{% endfor %}
+
+{% if not rounds %}
+<div class="card">
+    <p>No round data found in data/rounds/.</p>
+</div>
+{% endif %}
+{% endblock %}

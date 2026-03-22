@@ -12,6 +12,7 @@ from typing import Any
 
 import numpy as np
 
+from src._legacy.predictor import Predictor
 from src.api_client import AstarClient, BudgetExhaustedError
 from src.constants import (
     DEFAULT_MAP_HEIGHT,
@@ -21,9 +22,9 @@ from src.constants import (
 )
 from src.observation import ObservationStore
 from src.pipeline_types import PipelineResult, SeedResult  # re-exported
-from src.predictor import Predictor
 from src.query_strategy import QueryPlanner
 from src.state_loader import load_round
+from src.terrain import map_server_codes
 
 logger = logging.getLogger(__name__)
 
@@ -233,9 +234,9 @@ def _execute_single_query(
             vp.viewport_h,
         )
         planner.record_query()
-        # Pass raw server grid — ObservationStore handles server code mapping
-        patch = np.array(response["grid"], dtype=np.int32)
-        obs_store.add_observation(vp.seed_index, vp.viewport_x, vp.viewport_y, patch)
+        raw_patch = np.array(response["grid"], dtype=np.int32)
+        mapped_patch = map_server_codes(raw_patch)
+        obs_store.add_observation(vp.seed_index, vp.viewport_x, vp.viewport_y, mapped_patch)
         return 1
     except BudgetExhaustedError:
         logger.warning("Budget exhausted during query")

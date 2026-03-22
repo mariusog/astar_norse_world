@@ -8,11 +8,11 @@ smoothing.
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import numpy as np
 
 from src.constants import LAPLACE_ALPHA, NUM_PREDICTION_CLASSES
-from src.terrain import SERVER_TO_PRED_CLASS
 
 logger = logging.getLogger(__name__)
 
@@ -53,10 +53,20 @@ class ObservationStore:
             seed_index: Which seed this observation is for.
             viewport_x: Left column of the viewport.
             viewport_y: Top row of the viewport.
-            grid_patch: 2D array of terrain codes, shape (vh, vw).
-                Accepts both server codes (0-5, 10, 11) and prediction
-                class indices (0-5). Server codes 10/11 map to class 0 (Empty).
+            grid_patch: 2D array of prediction class indices (0-5),
+                shape (vh, vw). Callers must map raw server codes
+                via ``terrain.map_server_codes`` before calling.
+
+        Raises:
+            ValueError: If grid_patch contains values outside [0, NUM_PREDICTION_CLASSES).
         """
+        if np.any((grid_patch < 0) | (grid_patch >= NUM_PREDICTION_CLASSES)):
+            bad = grid_patch[(grid_patch < 0) | (grid_patch >= NUM_PREDICTION_CLASSES)]
+            raise ValueError(
+                f"grid_patch must contain prediction class indices 0-{NUM_PREDICTION_CLASSES - 1}, "
+                f"got invalid values: {np.unique(bad)}"
+            )
+        self._validate_seed(seed_index)
         self._ensure_seed(seed_index)
         vh, vw = grid_patch.shape
         self._accumulate_patch(
@@ -86,19 +96,27 @@ class ObservationStore:
         vw: int,
     ) -> None:
         """Add terrain counts from a viewport patch into the store."""
-        counts = self._counts[seed_index]
-        obs = self._obs_counts[seed_index]
-        for row in range(vh):
-            for col in range(vw):
-                gy = viewport_y + row
-                gx = viewport_x + col
-                if not self._in_bounds(gx, gy):
-                    continue
-                raw_code = int(grid_patch[row, col])
-                pred_class = SERVER_TO_PRED_CLASS.get(raw_code, -1)
-                if 0 <= pred_class < NUM_PREDICTION_CLASSES:
-                    counts[gy, gx, pred_class] += 1
-                    obs[gy, gx] += 1
+        # Clip viewport to map bounds
+        y_end = min(viewport_y + vh, self._height)
+        x_end = min(viewport_x + vw, self._width)
+        y_start = max(viewport_y, 0)
+        x_start = max(viewport_x, 0)
+        if y_start >= y_end or x_start >= x_end:
+            return
+
+        # Slice the patch to the in-bounds region
+        classes = grid_patch[
+            y_start - viewport_y : y_end - viewport_y,
+            x_start - viewport_x : x_end - viewport_x,
+        ].astype(np.int32)
+
+        # Increment counts for each cell (classes are pre-mapped prediction indices)
+        rows, cols = np.where(np.ones_like(classes, dtype=bool))
+        gy = rows + y_start
+        gx = cols + x_start
+        cls_vals = classes[rows, cols]
+        np.add.at(self._counts[seed_index], (gy, gx, cls_vals), 1)
+        np.add.at(self._obs_counts[seed_index], (gy, gx), 1)
 
     def get_observed_probs(self, seed_index: int) -> np.ndarray:
         """Return H x W x 6 probability tensor from observations.
@@ -171,7 +189,66 @@ class ObservationStore:
             return 0.0
         return float(mask.sum()) / total_cells
 
+    # -- Persistence -------------------------------------------------------
+
+    def save_to_disk(self, path: str | Path) -> None:
+        """Save observation data to a .npz file for cross-process persistence.
+
+        Args:
+            path: File path to write (will be overwritten if exists).
+        """
+        path = Path(path)
+        arrays: dict[str, np.ndarray] = {
+            "_meta": np.array([self._height, self._width, self._num_seeds], dtype=np.int32),
+        }
+        for si in self._counts:
+            arrays[f"counts_{si}"] = self._counts[si]
+            arrays[f"obs_{si}"] = self._obs_counts[si]
+        np.savez_compressed(str(path), **arrays)  # type: ignore[arg-type]
+        logger.info("Saved observations to %s (%d seeds)", path, len(self._counts))
+
+    @classmethod
+    def load_from_disk(cls, path: str | Path) -> ObservationStore:
+        """Restore an ObservationStore from a .npz file.
+
+        Args:
+            path: File path previously written by save_to_disk().
+
+        Returns:
+            Restored ObservationStore with all accumulated counts.
+        """
+        path = Path(path)
+        data = np.load(path)
+        meta = data["_meta"]
+        height, width, num_seeds = int(meta[0]), int(meta[1]), int(meta[2])
+        store = cls(height, width, num_seeds)
+        expected_counts = (height, width, NUM_PREDICTION_CLASSES)
+        expected_obs = (height, width)
+        for key in data.files:
+            if key.startswith("counts_"):
+                si = int(key.split("_", 1)[1])
+                arr = data[key]
+                if arr.shape != expected_counts:
+                    msg = f"counts shape {arr.shape} != expected {expected_counts}"
+                    raise ValueError(msg)
+                store._counts[si] = arr
+            elif key.startswith("obs_"):
+                si = int(key.split("_", 1)[1])
+                arr = data[key]
+                if arr.shape != expected_obs:
+                    msg = f"obs shape {arr.shape} != expected {expected_obs}"
+                    raise ValueError(msg)
+                store._obs_counts[si] = arr
+        logger.info("Loaded observations from %s (%d seeds)", path, len(store._counts))
+        return store
+
     # -- Internal helpers ---------------------------------------------------
+
+    def _validate_seed(self, seed_index: int) -> None:
+        """Raise ValueError if seed_index is out of range."""
+        if not 0 <= seed_index < self._num_seeds:
+            msg = f"seed_index {seed_index} out of range [0, {self._num_seeds})"
+            raise ValueError(msg)
 
     def _ensure_seed(self, seed_index: int) -> None:
         """Initialize storage for a seed if not already present."""

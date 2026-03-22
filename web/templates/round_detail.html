@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Round {{ round_number }} - Astar Norse World{% endblock %}
+{% block content %}
+<h1>Round {{ round_number }} Detail</h1>
+
+{% if round %}
+<div class="card">
+    <p><strong>ID:</strong> {{ round.id }}</p>
+    <p><strong>Status:</strong> <span class="badge badge-{{ round.status }}">{{ round.status }}</span></p>
+    <p><strong>Map:</strong> {{ round.map_width }}x{{ round.map_height }}</p>
+    <p><strong>Seeds:</strong> {{ round.seed_count }}</p>
+    <p><strong>Date:</strong> {{ round.event_date }}</p>
+</div>
+
+{% if scores %}
+<div class="card">
+    <h2>Submission Scores</h2>
+    <table>
+        <thead>
+            <tr><th>Seed</th><th>Score</th><th>Weighted KL</th><th>Dynamic Cells</th><th>Mean Entropy</th></tr>
+        </thead>
+        <tbody>
+            {% for s in scores %}
+            <tr>
+                <td>{{ s.seed_index }}</td>
+                <td class="{% if s.score is defined and s.score >= 70 %}score-good{% elif s.score is defined and s.score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                    {{ "%.2f" | format(s.score) if s.score is defined else "N/A" }}</td>
+                <td>{{ "%.4f" | format(s.weighted_kl) if s.weighted_kl is defined else "N/A" }}</td>
+                <td>{{ s.num_dynamic_cells | default("N/A") }}</td>
+                <td>{{ "%.4f" | format(s.mean_entropy) if s.mean_entropy is defined else "N/A" }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <p>No submission scores available for this round.</p>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card">
+    <p>Round {{ round_number }} not found.</p>
+</div>
+{% endif %}
+
+<a href="/rounds/" class="btn btn-primary">Back to Rounds</a>
+{% endblock %}

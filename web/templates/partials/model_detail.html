@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}{{ strategy_name }} - Model Detail{% endblock %}
+{% block content %}
+<h1>Strategy: {{ strategy_name }}</h1>
+
+{% if entry %}
+<div class="card">
+    <p><strong>Average Score:</strong>
+        <span class="{% if entry.avg_score >= 70 %}score-good{% elif entry.avg_score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+            {{ entry.avg_score }}
+        </span>
+    </p>
+    <p><strong>Rounds Evaluated:</strong> {{ entry.num_rounds }}</p>
+    <p><strong>Last Run:</strong> {{ entry.timestamp }}</p>
+
+    <h2>Per-Round Scores</h2>
+    <table>
+        <thead>
+            <tr><th>Round</th><th>Average Score</th></tr>
+        </thead>
+        <tbody>
+            {% for rn, score in entry.per_round.items() | sort %}
+            <tr>
+                <td>{{ rn }}</td>
+                <td class="{% if score >= 70 %}score-good{% elif score >= 50 %}score-mid{% else %}score-bad{% endif %}">
+                    {{ score }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <p>No backtest results for {{ strategy_name }}. Run a backtest from the
+        <a href="/research/">Research page</a> first.</p>
+</div>
+{% endif %}
+
+<a href="/research/" class="btn btn-primary">Back to Research</a>
+{% endblock %}

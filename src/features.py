@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections import deque
 
 import numpy as np
+from scipy.ndimage import uniform_filter
 
 from src.terrain import InternalTerrain, neighbors_4
 
@@ -127,6 +128,47 @@ def compute_forest_density(grid: np.ndarray, radius: int = 3) -> np.ndarray:
     return result
 
 
+def compute_settlement_density(
+    grid: np.ndarray,
+    window: int = 7,
+) -> np.ndarray:
+    """Count settlement/port cells in a square window around each cell.
+
+    Uses a box filter (uniform_filter) for O(H * W) complexity.
+
+    Args:
+        grid: H x W array of InternalTerrain values.
+        window: Side length of the square counting window.
+
+    Returns:
+        H x W int32 array of settlement/port counts per window.
+    """
+    mask = ((grid == InternalTerrain.SETTLEMENT) | (grid == InternalTerrain.PORT)).astype(
+        np.float64
+    )
+    raw = uniform_filter(mask, size=window, mode="constant", cval=0.0)
+    return np.round(raw * window**2).astype(np.int32)
+
+
+def compute_terrain_neighborhood(grid: np.ndarray, radius: int = 2) -> np.ndarray:
+    """Compute fraction of each terrain type in local neighborhood.
+
+    Returns (H, W, num_types) float array where [y,x,t] is the fraction
+    of cells within a (2*radius+1) square window that are terrain type t.
+    """
+    from src.constants import NUM_INTERNAL_TYPES
+
+    h, w = grid.shape
+    window = 2 * radius + 1
+    result = np.zeros((h, w, NUM_INTERNAL_TYPES), dtype=np.float32)
+    for t in range(NUM_INTERNAL_TYPES):
+        mask = (grid == t).astype(np.float64)
+        result[:, :, t] = uniform_filter(mask, size=window, mode="constant", cval=0.0).astype(
+            np.float32
+        )
+    return result
+
+
 def compute_feature_grid(grid: np.ndarray) -> dict[str, np.ndarray]:
     """Compute all spatial features for a terrain grid.
 
@@ -136,12 +178,14 @@ def compute_feature_grid(grid: np.ndarray) -> dict[str, np.ndarray]:
     Returns:
         Dictionary with feature name -> H x W array:
         - settlement_dist: distance to nearest settlement/port
+        - settlement_density: count of settlements in 7x7 window
         - coastal_mask: bool mask of coastal land cells
         - ocean_dist: distance to nearest ocean cell
         - forest_density: count of nearby forest cells
     """
     return {
         "settlement_dist": compute_settlement_distance(grid),
+        "settlement_density": compute_settlement_density(grid),
         "coastal_mask": compute_coastal_mask(grid),
         "ocean_dist": compute_ocean_distance(grid),
         "forest_density": compute_forest_density(grid),

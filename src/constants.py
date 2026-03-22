@@ -160,3 +160,51 @@ CALIBRATION_BIAS_THRESHOLD = 0.05  # minimum delta to flag a bias as significant
 
 LAPLACE_ALPHA = 0.01  # Laplace smoothing pseudocount (low = trust observations more)
 OBS_CONFIDENCE_K = 5  # confidence scaling: weight = count / (count + K)
+
+# ---------------------------------------------------------------------------
+# Terrain classification
+# ---------------------------------------------------------------------------
+
+NUM_INTERNAL_TYPES = 7  # number of internal terrain type categories
+DIST_BIN_EDGES = [0, 1, 2, 3, 4, 5, 7, 10, 15, 999]  # per-distance bins for finer granularity
+
+# ---------------------------------------------------------------------------
+# Prior weighting
+# ---------------------------------------------------------------------------
+
+SURVIVE_WEIGHT = 2.0  # weight for survive rounds (balanced for collapse too)
+COLLAPSE_WEIGHT = 1.0  # weight for rounds where settlements collapsed
+SURVIVE_ROUNDS = frozenset({1, 2, 5, 9})  # normal settlement survival
+COLLAPSE_ROUNDS = frozenset({3, 4, 8, 10, 13})  # all/most settlements collapse
+AGGRESSIVE_ROUNDS = frozenset({6, 7, 11, 12})  # massive settlement expansion
+
+# ---------------------------------------------------------------------------
+# Dynamic cell classification
+# ---------------------------------------------------------------------------
+
+DYNAMIC_SETTLEMENT_RADIUS = 3  # distance threshold for dynamic cells near settlements
+DYNAMIC_FOREST_RADIUS = 3  # forest cells within this distance of settlements are dynamic
+DYNAMIC_DIST_THRESHOLD = 3  # backtest: distance threshold for dynamic cell identification
+
+# ---------------------------------------------------------------------------
+# Feature predictor
+# ---------------------------------------------------------------------------
+
+SETTLEMENT_DENSITY_WINDOW = 7  # window size for settlement density filter
+SETTLEMENT_DENSITY_MAX_BIN = 5  # density values >= this are capped
+FEATURE_PROB_FLOOR = 0.01  # minimum probability per class after lookup
+
+# ---------------------------------------------------------------------------
+# Regime detection thresholds
+# ---------------------------------------------------------------------------
+
+REGIME_SURVIVE = "survive"
+REGIME_COLLAPSE = "collapse"
+REGIME_AGGRESSIVE = "aggressive"
+REGIME_COLLAPSE_THRESHOLD = 0.05  # settlement survival rate below this = collapse
+REGIME_AGGRESSIVE_THRESHOLD = 0.35  # settlement survival rate above this = aggressive
+QUERY_DELAY_SECONDS = 0.2  # delay between API queries to avoid rate limiting
+CALIBRATION_MIN_CELLS = 3  # minimum observed cells to apply online calibration
+CALIBRATION_MAX_ADJUST = 0.10  # max per-class adjustment from online calibration
+ONLINE_CALIBRATION_MIN_CELLS = 3  # alias for online_calibration module
+ONLINE_CALIBRATION_MAX_ADJUST = 0.10  # alias for online_calibration module
