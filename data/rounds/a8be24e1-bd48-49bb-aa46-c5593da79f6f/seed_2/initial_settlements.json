@@ -1,0 +1,200 @@
+[
+  {
+    "x": 8,
+    "y": 36,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 7,
+    "y": 25,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 22,
+    "y": 20,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 32,
+    "y": 19,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 35,
+    "y": 17,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 7,
+    "y": 6,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 5,
+    "y": 17,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 5,
+    "y": 12,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 24,
+    "y": 12,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 5,
+    "y": 21,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 10,
+    "y": 29,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 17,
+    "y": 12,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 11,
+    "y": 32,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 15,
+    "y": 13,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 36,
+    "y": 21,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 16,
+    "y": 26,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 21,
+    "y": 5,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 17,
+    "y": 37,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 34,
+    "y": 26,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 18,
+    "y": 30,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 32,
+    "y": 9,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 13,
+    "y": 3,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 26,
+    "y": 31,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 18,
+    "y": 5,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 31,
+    "y": 26,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 35,
+    "y": 6,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 13,
+    "y": 8,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 14,
+    "y": 17,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 25,
+    "y": 18,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 13,
+    "y": 36,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 17,
+    "y": 18,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 29,
+    "y": 33,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 29,
+    "y": 29,
+    "has_port": false,
+    "alive": true
+  }
+]
