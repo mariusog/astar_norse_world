@@ -144,3 +144,13 @@ class TestComputeFeatureGrid:
         h, w = simple_grid.shape
         for name, arr in features.items():
             assert arr.shape[:2] == (h, w), f"{name} shape mismatch"
+
+
+class TestComputeTerrainOnehot:
+    def test_shape_and_row_sums(self, simple_grid: np.ndarray) -> None:
+        from src.features import compute_terrain_onehot
+
+        result = compute_terrain_onehot(simple_grid)
+        h, w = simple_grid.shape
+        assert result.shape == (h * w, 7)
+        np.testing.assert_allclose(result.sum(axis=1), 1.0, atol=1e-6)
