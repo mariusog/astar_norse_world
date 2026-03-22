@@ -1,0 +1,188 @@
+[
+  {
+    "x": 15,
+    "y": 26,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 34,
+    "y": 26,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 8,
+    "y": 28,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 28,
+    "y": 8,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 32,
+    "y": 12,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 5,
+    "y": 33,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 35,
+    "y": 16,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 7,
+    "y": 32,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 12,
+    "y": 5,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 7,
+    "y": 19,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 12,
+    "y": 29,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 8,
+    "y": 11,
+    "has_port": true,
+    "alive": true
+  },
+  {
+    "x": 22,
+    "y": 11,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 33,
+    "y": 14,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 17,
+    "y": 16,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 29,
+    "y": 31,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 37,
+    "y": 10,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 3,
+    "y": 34,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 10,
+    "y": 2,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 18,
+    "y": 3,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 5,
+    "y": 29,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 4,
+    "y": 2,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 3,
+    "y": 11,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 12,
+    "y": 33,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 10,
+    "y": 27,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 24,
+    "y": 35,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 22,
+    "y": 23,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 10,
+    "y": 17,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 5,
+    "y": 36,
+    "has_port": false,
+    "alive": true
+  },
+  {
+    "x": 26,
+    "y": 5,
+    "has_port": true,
+    "alive": true
+  },
+  {
+    "x": 21,
+    "y": 13,
+    "has_port": false,
+    "alive": true
+  }
+]
