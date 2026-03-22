@@ -323,7 +323,7 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
 # Regime-specific training: include ONLY matching rounds
 _REGIME_INCLUDE: dict[str, set[int]] = {
     "survive": {1, 2, 4, 5, 9, 13, 14, 16},  # normal settlement survival
-    "aggressive": {6, 7, 11, 12, 15, 17},  # settlement expansion rounds
+    "aggressive": {6, 7, 11, 12, 15, 17, 18},  # settlement expansion rounds
     "deep_collapse": {3, 4, 8, 9, 10, 13},  # collapse rounds (0-2 settlements)
     "partial_collapse": {1, 2, 4, 5, 9, 13, 14, 16},  # similar to survive
 }
@@ -477,7 +477,7 @@ def _build_prediction(
 _REGIME_CONCENTRATION: dict[str, float] = {
     "survive": 20,      # trust XGBoost more (need many obs to shift)
     "aggressive": 10,   # shift more easily from observations
-    "deep_collapse": 15,
+    "deep_collapse": 30,  # trust XGBoost more in collapse (higher = less obs shift)
     "partial_collapse": 20,
 }
 
