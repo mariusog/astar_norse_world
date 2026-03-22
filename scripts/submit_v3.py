@@ -324,7 +324,7 @@ def _count_survival(grid: np.ndarray, obs: ObservationStore, si: int) -> tuple[i
 _REGIME_INCLUDE: dict[str, set[int]] = {
     "survive": {1, 2, 4, 5, 9, 13, 14, 16},  # normal settlement survival
     "aggressive": {6, 7, 11, 12, 15, 17, 18},  # settlement expansion rounds
-    "deep_collapse": {3, 4, 8, 9, 10, 13},  # collapse rounds (0-2 settlements)
+    "deep_collapse": {3, 4, 8, 9, 10, 13, 19},  # collapse rounds (0-2 settlements)
     "partial_collapse": {1, 2, 4, 5, 9, 13, 14, 16},  # similar to survive
 }
 
