@@ -119,6 +119,47 @@ def test_extract_cell_features_ocean_cell_is_type_zero(
     assert features[0, 0] == 1.0  # ocean = InternalTerrain(0)
 
 
+def test_extract_cell_features_inv_distance_range(mixed_grid: np.ndarray) -> None:
+    """Inverse distance features are in (0, 1]."""
+    from src.ml_predictor import NUM_TERRAIN_TYPES, extract_cell_features
+
+    features = extract_cell_features(mixed_grid)
+    inv_settle_col = NUM_TERRAIN_TYPES + 5  # col index for inv_settle_dist
+    inv_ocean_col = NUM_TERRAIN_TYPES + 8  # col index for inv_ocean_dist
+    for col in [inv_settle_col, inv_ocean_col]:
+        vals = features[:, col]
+        assert vals.min() > 0, "inverse distance must be positive"
+        assert vals.max() <= 1.0 + 1e-6, "inverse distance must be <= 1"
+
+
+def test_extract_cell_features_forest_interaction_zero_non_forest(
+    mixed_grid: np.ndarray,
+) -> None:
+    """First two forest interaction features are zero for non-forest cells."""
+    from src.ml_predictor import NUM_FEATURES, extract_cell_features
+
+    features = extract_cell_features(mixed_grid)
+    interaction_start = NUM_FEATURES - 3  # last 3 columns
+    non_forest = mixed_grid.ravel() != InternalTerrain.FOREST
+    # forest_x_dist and forest_x_inv use is_forest mask → zero for non-forest
+    assert np.allclose(features[non_forest, interaction_start], 0.0)
+    assert np.allclose(features[non_forest, interaction_start + 1], 0.0)
+
+
+def test_extract_cell_features_forest_interaction_nonzero(
+    mixed_grid: np.ndarray,
+) -> None:
+    """Forest interaction features are non-zero for forest cells near settlements."""
+    from src.ml_predictor import NUM_FEATURES, extract_cell_features
+
+    features = extract_cell_features(mixed_grid)
+    interaction_start = NUM_FEATURES - 3
+    # mixed_grid has forest at (5,5) and (5,6), settlement at (3,3)
+    forest_idx = 5 * 10 + 5  # (5,5) in a 10-wide grid
+    assert features[forest_idx, interaction_start] > 0, "forest_x_dist should be > 0"
+    assert features[forest_idx, interaction_start + 1] > 0, "forest_x_inv should be > 0"
+
+
 # ---------------------------------------------------------------------------
 # Tests: build_training_data
 # ---------------------------------------------------------------------------
