@@ -1,6 +1,6 @@
 # Competition Strategy
 
-**Updated**: 2026-03-22 | **Rounds**: R1-R21 | **Best scores**: R19=87.6 (collapse), R15=87.0 (aggressive), R17=84.7 (aggressive)
+**Updated**: 2026-03-22 | **Rounds**: R1-R22 | **Best scores**: R19=87.6 (collapse), R15=87.0 (aggressive), R17=84.7 (aggressive)
 
 ## Architecture
 
@@ -58,7 +58,8 @@ The optimal predictor under KL(p||q) loss is q* = E[p], the posterior mean. The 
 | R17 | aggressive | 84.7 | Solid |
 | R18 | aggressive | 70.8 | Below average |
 | R19 | deep_collapse | **87.6** | Best collapse, Dirichlet update worked |
-| R21 | survive | *pending* | First with conc=500 fix |
+| R21 | survive | 82.3 | First with conc=500 fix |
+| R22 | survive | *pending* | New features + regime fix |
 
 ## Submission Checklist
 
