@@ -530,7 +530,7 @@ def _equilibrium_shift(
 # Regime-specific power transforms (from researcher optimization)
 # 1.0 = no power transform
 _REGIME_POWER: dict[str, float] = {
-    "survive": 0.95,  # 0.9 was too aggressive, lost 3+ pts on R16
+    "survive": 1.0,  # no power — raw XGBoost is best for survive (power hurts 1-3 pts)
     "aggressive": 1.0,  # no power — hurts aggressive (R12 LOO: 65 vs 69)
     "deep_collapse": 1.0,
     "partial_collapse": 1.05,
@@ -538,7 +538,7 @@ _REGIME_POWER: dict[str, float] = {
 
 # Regime-specific post-processing chains
 _REGIME_TRANSFORMS: dict[str, list[tuple[str, dict]]] = {
-    "survive": [("spatial_smooth", {"sigma": 0.3})],
+    "survive": [],  # no smoothing — raw XGBoost is best for survive
     "aggressive": [],
     "deep_collapse": [("collapse_shift", {"threshold": 0.3})],
     "partial_collapse": [],
