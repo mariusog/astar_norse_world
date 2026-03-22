@@ -1,60 +1,67 @@
-# Astar Norse World — NM i AI 2026
+# Astar Norse World
 
-Terrain probability predictor for the Norse World simulation challenge at [app.ainm.no](https://app.ainm.no).
-
-Predicts 6-class terrain probability distributions (Empty, Settlement, Port, Ruin, Forest, Mountain) on a 40x40 grid after a 50-year Norse settlement simulation, using XGBoost with spatial features and Bayesian observation updating.
+Predicts 6-class terrain probabilities on a 40x40 Norse settlement simulation grid for the [NM i AI 2026](https://app.ainm.no) competition.
 
 ## Quick Start
 
 ```bash
-# Install
 pip install -e .
-
-# Capture round data
-python -m src.round_collector --token $ASTAR_TOKEN
-
-# Submit predictions for active round
+export ASTAR_TOKEN="your_jwt_token"
 python -m scripts.submit_v3 --token $ASTAR_TOKEN --regime survive --budget 45
-
-# Run LOO backtest
-python scripts/loo_backtest_v3.py
 ```
 
-## Architecture
+## Usage
 
-1. **Probe** (5 queries): Detect regime from settlement survival rates
-2. **Train**: XGBoost on 19 spatial features (terrain, distance, density, neighborhood context)
-3. **Observe** (45 queries): 15x15 viewports targeting settlement clusters
-4. **Predict**: XGBoost + Bayesian Dirichlet update from observations
-5. **Post-process**: Power transform, spatial smoothing, floor + normalize
-6. **Submit**: Validated 40x40x6 probability tensor per seed
+```bash
+# Probe a round (5 queries) to detect regime, then submit with 45 observation queries
+python -m scripts.submit_v3 --token $ASTAR_TOKEN --regime aggressive --budget 45
+
+# Capture completed round data for training
+python -m scripts.post_round --token $ASTAR_TOKEN
+
+# Run leave-one-out backtest across all historical rounds
+python scripts/loo_backtest_v3.py
+
+# Dry run (no actual submission)
+python -m scripts.submit_v3 --token $ASTAR_TOKEN --dry-run
+```
+
+## How It Works
+
+1. **Probe** (5 queries) — detect regime (survive/aggressive/collapse) from settlement survival rates
+2. **Train** — XGBoost on 19 spatial features per cell (terrain, distance, density, neighborhood)
+3. **Observe** (45 queries) — 15x15 viewports on settlement clusters
+4. **Predict** — XGBoost + Bayesian Dirichlet update from per-terrain observation marginals
+5. **Submit** — power transform, floor, normalize, validate, submit per seed
 
 ## Project Structure
 
 ```
-src/                    # Core modules
-  ml_predictor.py       # XGBoost per-cell classifier
-  features.py           # Spatial feature extraction
-  observation.py        # Viewport observation aggregator
-  simulation.py         # Norse world simulation engine
-  terrain.py            # Terrain types and mappings
-  predictor_protocol.py # GridPredictor protocol
-  transforms.py         # Probability transforms
-scripts/                # Submission and analysis
-  submit_v3.py          # Main submission pipeline
-  loo_backtest_v3.py    # Leave-one-out validation
-  post_round.py         # Post-round data capture
-tests/                  # Test suite (480+ tests)
-data/rounds/            # Historical round data
-docs/                   # Strategy and analysis docs
-web/                    # Flask dashboard
+src/              # Core prediction and simulation modules
+scripts/          # Submission pipeline, backtesting, data capture
+tests/            # 480+ unit tests (pytest)
+data/rounds/      # Historical round ground truth (20+ rounds)
+docs/             # Strategy, benchmarks, analysis reports
+web/              # Flask dashboard for exploration and backtesting
 ```
 
-## Tests
+## Development
 
 ```bash
+# Install with dev dependencies
+pip install -e ".[dev]"
+
+# Run tests
 python -m pytest tests/ --ignore=tests/_legacy -q -m "not slow"
+
+# Lint and format
+ruff check src/ scripts/ tests/
+ruff format src/ scripts/ tests/
 ```
+
+## Configuration
+
+All tuning parameters are in `src/constants.py`. Regime-specific settings (ensemble weights, power transforms, Dirichlet concentrations) are in `scripts/submit_v3.py`. See `docs/strategy.md` for the full parameter table.
 
 ## License
 
