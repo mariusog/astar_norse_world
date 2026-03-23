@@ -31,9 +31,9 @@ async def research_page(request: Request) -> HTMLResponse:
     strategies = list_strategies()
     leaderboard = get_leaderboard()
     return templates.TemplateResponse(
+        request,
         "research.html",
-        {
-            "request": request,
+        context={
             "strategies": strategies,
             "leaderboard": leaderboard,
         },
@@ -47,9 +47,9 @@ async def run_backtest(request: Request, strategy_name: str) -> HTMLResponse:
     result = run_loo_backtest(strategy_name)
     leaderboard = get_leaderboard()
     return templates.TemplateResponse(
+        request,
         "partials/backtest_result.html",
-        {
-            "request": request,
+        context={
             "result": result,
             "leaderboard": leaderboard,
         },
@@ -64,9 +64,9 @@ async def backtest_page(request: Request) -> HTMLResponse:
     rounds = list_rounds()
     round_numbers = sorted(r["round_number"] for r in rounds)
     return templates.TemplateResponse(
+        request,
         "backtest.html",
-        {
-            "request": request,
+        context={
             "strategies": strategies,
             "leaderboard": leaderboard,
             "round_numbers": round_numbers,
@@ -81,9 +81,9 @@ async def model_detail(request: Request, strategy_name: str) -> HTMLResponse:
     entry = next((e for e in leaderboard if e["strategy"] == strategy_name), None)
     strategies = list_strategies()
     return templates.TemplateResponse(
+        request,
         "partials/model_detail.html",
-        {
-            "request": request,
+        context={
             "strategy_name": strategy_name,
             "entry": entry,
             "strategies": strategies,

@@ -34,9 +34,9 @@ async def home(request: Request) -> HTMLResponse:
     strategies = list_strategies()
     leaderboard = get_leaderboard()
     return templates.TemplateResponse(
+        request,
         "index.html",
-        {
-            "request": request,
+        context={
             "strategies": strategies,
             "leaderboard": leaderboard,
         },

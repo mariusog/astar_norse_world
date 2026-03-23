@@ -31,8 +31,9 @@ async def rounds_page(request: Request) -> HTMLResponse:
         round_dir = Path(DATA_DIR) / rd["dir_name"]
         rd["scores"] = get_round_scores(round_dir)
     return templates.TemplateResponse(
+        request,
         "rounds.html",
-        {"request": request, "rounds": rounds},
+        context={"rounds": rounds},
     )
 
 
@@ -46,9 +47,9 @@ async def round_detail(request: Request, round_number: int) -> HTMLResponse:
         round_dir = Path(DATA_DIR) / rd["dir_name"]
         scores = get_round_scores(round_dir)
     return templates.TemplateResponse(
+        request,
         "round_detail.html",
-        {
-            "request": request,
+        context={
             "round": rd,
             "scores": scores,
             "round_number": round_number,
