@@ -28,16 +28,18 @@ Terrain prediction agent for the [NM i AI 2026](https://app.ainm.no) A* Norse Wo
 
 **Adaptive viewport placement** -- Viewports are placed at settlement density peaks (box-blur over settlement mask). Dense areas provide the most information -- more cells observed, more reliable per-terrain marginals.
 
-### What Worked and What Didn't
+### What Worked
 
-| Decision | Outcome |
-|----------|---------|
-| Per-terrain aggregation of observations | +5-6 points over XGBoost alone |
-| Regime-specific training data splits | Helped for aggressive/collapse, hurt when misclassified |
-| Per-cell observation blending | Noise dominated with only 1-2 draws per cell -- abandoned |
-| Low probability floor (0.01) | Essential -- 0.03 floor dropped score to 65.9 |
-| Regime detection from 5 probes | Only 37.5% accurate -- R13 misclassification cost 42.6 points |
-| Static terrain overrides (ocean/mountain at 99%) | Free points on known cells |
+- **Per-terrain aggregation of observations** -- +5-6 points over XGBoost alone. Pooling by terrain type instead of per-cell eliminated stochastic noise.
+- **Low probability floor (0.01)** -- Essential. Raising to 0.03 dropped score to 65.9 due to KL divergence penalty.
+- **Static terrain overrides** (ocean/mountain at 99%) -- Free points on cells with known outcomes.
+- **Regime-specific training splits** -- Aggressive and collapse rounds have fundamentally different dynamics; training on the right subset helped.
+
+### What Didn't Work
+
+- **Per-cell observation blending** -- With only 1-2 stochastic draws per cell, noise dominated. Abandoned in favor of per-terrain aggregation.
+- **Regime detection from 5 probes** -- Only 37.5% accurate. R13 misclassification cost 42.6 points. Research recommended eliminating probes entirely.
+- **High probability floor (0.03)** -- Score dropped from ~75 to 65.9. The KL divergence penalty for assigning too little probability is severe.
 
 ## Quick Start
 
